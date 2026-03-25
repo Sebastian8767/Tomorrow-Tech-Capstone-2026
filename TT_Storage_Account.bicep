@@ -2,9 +2,10 @@
 Azure CLI command to deploy this Bicep file:
 
 az deployment group create `
-  --resource-group GBTAC-RG `
-  --template-file TT_Storage_Account.bicep
-
+    --resource-group GBTAC-RG `
+    --template-file TT_Storage_Account.bicep `
+    --query "properties.outputs.storageAccountName.value" `
+    --output tsv
 */
 
 @description('Base name for the storage account')
@@ -61,4 +62,3 @@ resource sensorCsvContainer 'Microsoft.Storage/storageAccounts/blobServices/cont
 }
 
 output storageAccountName string = storageAccount.name
-output storageAccountId string = storageAccount.id
