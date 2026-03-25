@@ -63,3 +63,7 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2024-11-01-preview' = {
     requestedBackupStorageRedundancy: 'Local'
   }
 }
+
+// Displays the FQDN and name of the SQL server as output for connection string required for the next step.
+output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
+output sqlServerName string = sqlServer.name
