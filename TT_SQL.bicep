@@ -6,7 +6,9 @@ az deployment group create `
   --template-file TT_SQL.bicep `
   --parameters `
     adminPassword=P@ssw0rd!123! `
-    sqlServerBaseName=gbtac-sql
+    sqlServerBaseName=gbtac-sql `
+  --query "properties.outputs.sqlServerFqdn.value" `
+  --output tsv
 
 */
 
@@ -64,6 +66,5 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2024-11-01-preview' = {
   }
 }
 
-// Displays the FQDN and name of the SQL server as output for connection string required for the next step.
+// Displays the FQDN for the connection string used in the next step.
 output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
-output sqlServerName string = sqlServer.name
