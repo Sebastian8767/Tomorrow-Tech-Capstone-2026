@@ -6,7 +6,7 @@ az deployment group create `
   --template-file TT_SQL.bicep `
   --parameters `
     adminPassword=P@ssw0rd!123! `
-    sqlServerBaseName=gbtac-sql `
+    sqlServerBaseName=gbtac-sql- `
   --query "properties.outputs.sqlServerFqdn.value" `
   --output tsv
 
