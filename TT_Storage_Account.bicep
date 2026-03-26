@@ -9,7 +9,7 @@ az deployment group create `
 */
 
 @description('Base name for the storage account')
-param storageAccountBaseName string = 'gbtacstorage-'
+param storageAccountBaseName string = 'gbtacstorage'
 
 var storageAccountName = '${storageAccountBaseName}${substring(uniqueString(resourceGroup().id), 0, 8)}'
 
