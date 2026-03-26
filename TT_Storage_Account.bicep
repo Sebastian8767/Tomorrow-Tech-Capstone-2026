@@ -5,7 +5,8 @@ az deployment group create `
     --resource-group GBTAC-RG `
     --template-file TT_Storage_Account.bicep `
     --query "properties.outputs.storageAccountName.value" `
-    --output tsv
+    --output tsv ; Write-Host "^^^ COPY THIS ^^^"
+    
 */
 
 @description('Base name for the storage account')
