@@ -8,7 +8,7 @@ az deployment group create `
     adminPassword=P@ssw0rd!123! `
     sqlServerBaseName=gbtac-sql- `
   --query "properties.outputs.sqlServerFqdn.value" `
-  --output tsv
+  --output tsv ; Write-Host "^^^ COPY THIS ^^^"
 
 */
 
