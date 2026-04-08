@@ -5,7 +5,7 @@ az deployment group create `
     --resource-group GBTAC-RG `
     --template-file TT_Storage_Account.bicep `
     --query "properties.outputs.storageAccountName.value" `
-    --output tsv ; Write-Host "^^^ COPY THIS ^^^"
+    --output tsv ; Write-Host "^^ Copy Storeage Account Name Above ^^"
     
 */
 
@@ -59,6 +59,42 @@ resource sensorCsvContainer 'Microsoft.Storage/storageAccounts/blobServices/cont
   parent: blobService
   properties: {
     publicAccess: 'Blob'
+  }
+}
+
+// Required by the Function App runtime for internal operations
+resource webjobsHostsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'azure-webjobs-hosts'
+  parent: blobService
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// Required by the Function App runtime to store function keys and secrets
+resource webjobsSecretsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'azure-webjobs-secrets'
+  parent: blobService
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// Required by Kudu (deployment engine) to stage zip deployments
+resource scmReleasesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'scm-releases'
+  parent: blobService
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// Required by Flex Consumption plan to store function deployment packages
+resource functionReleasesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'function-releases'
+  parent: blobService
+  properties: {
+    publicAccess: 'None'
   }
 }
 
