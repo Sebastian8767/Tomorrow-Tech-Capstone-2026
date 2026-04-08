@@ -4,7 +4,8 @@ Azure CLI command to deploy this Bicep file:
 az deployment sub create \
   --name create-rg \
   --location canadacentral \
-  --template-file main.bicep
+  --template-file TT_ResourceGroup.bicep
+  
 */
 targetScope = 'subscription'
 
