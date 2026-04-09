@@ -5,6 +5,7 @@ az deployment group create `
   --resource-group GBTAC-RG `
   --template-file TT_SQL.bicep `
   --parameters `
+    adminUsername=gbtacadmin `
     adminPassword=P@ssw0rd!123! `
     sqlServerBaseName=gbtac-sql- `
   --query "properties.outputs.sqlServerFqdn.value" `
@@ -22,7 +23,7 @@ param databaseName string = 'GBTAC-Database'
 param location string = resourceGroup().location
 
 @description('SQL admin username')
-param adminUsername string = 'gbtacadmin'
+param adminUsername string
 
 @secure()
 @description('SQL admin password')
