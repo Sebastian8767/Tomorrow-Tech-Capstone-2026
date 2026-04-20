@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Browser - GBTAC BMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #121820;
+            --bg-card: #1a1f2e;
+            --accent-primary: #00ff88;
+            --accent-secondary: #00d4ff;
+            --accent-warning: #ffaa00;
+            --accent-danger: #ff3366;
+            --text-primary: #ffffff;
+            --text-secondary: #8b92a8;
+            --text-muted: #5a6178;
+            --border: #2a3142;
+            --glow: rgba(0, 255, 136, 0.15);
+        }
+
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container { max-width: 1800px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+        header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan { 0% { left: -100%; } 100% { left: 100%; } }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-card);
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .view-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-btn.active { background: var(--accent-primary); color: var(--bg-primary); box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
+
+        .controls-section { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+        .search-container { position: relative; }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 50px 14px 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: 'Sora', sans-serif;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--glow); }
+        .search-input::placeholder { color: var(--text-muted); }
+
+        .search-icon { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 20px; }
+
+        .filter-select {
+            padding: 14px 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--glow); }
+
+        .quick-filters { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+
+        .filter-chip {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .filter-chip:hover, .filter-chip.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: var(--bg-primary);
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .filter-chip .count { margin-left: 6px; opacity: 0.7; }
+
+        /* Stats Summary */
+        .stats-summary {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .stat-item { text-align: center; }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* List View */
+        .sensor-list-view { display: flex; flex-direction: column; gap: 12px; }
+
+        .sensor-list-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 20px;
+            align-items: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .sensor-list-item:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 16px rgba(0, 255, 136, 0.15);
+            transform: translateX(4px);
+        }
+
+        .sensor-list-item.offline { opacity: 0.5; border-color: var(--accent-danger); }
+
+        .sensor-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .icon-energy      { background: rgba(255, 51, 102, 0.1); }
+        .icon-temperature { background: rgba(255, 170, 0, 0.1); }
+        .icon-water       { background: rgba(0, 212, 255, 0.1); }
+        .icon-hvac        { background: rgba(0, 255, 136, 0.1); }
+
+        .sensor-name { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+
+        .sensor-meta { font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .sensor-meta span { margin-right: 16px; }
+
+        .sensor-value { text-align: right; }
+
+        .sensor-reading {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+        }
+
+        .sensor-unit { font-size: 14px; color: var(--text-muted); margin-left: 4px; }
+        .sensor-status { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+        .sensor-actions { display: flex; gap: 8px; }
+
+        .action-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 16px;
+        }
+
+        .action-icon-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); box-shadow: 0 0 12px rgba(0, 255, 136, 0.2); }
+
+        /* Grid View */
+        .sensor-grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+
+        .sensor-grid-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .sensor-grid-item:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 32px rgba(0, 255, 136, 0.15);
+            transform: translateY(-4px);
+        }
+
+        .sensor-grid-item.offline { opacity: 0.5; border-color: var(--accent-danger); }
+
+        .grid-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+
+        .grid-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+
+        .grid-status {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            box-shadow: 0 0 12px var(--accent-primary);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .grid-status.offline { background: var(--accent-danger); box-shadow: 0 0 12px var(--accent-danger); animation: none; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }
+
+        .grid-name { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+        .grid-location { font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 20px; }
+
+        .grid-value {
+            font-size: 36px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+            margin-bottom: 8px;
+        }
+
+        .grid-trend { display: flex; align-items: center; gap: 6px; font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary); }
+        .trend-up   { color: var(--accent-primary); }
+        .trend-down { color: var(--accent-danger); }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 14, 20, 0.95); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(10px); animation: fadeIn 0.3s ease; }
+        .modal.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .modal-header { padding: 28px 32px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); }
+        .modal-title-section { display: flex; align-items: center; gap: 16px; }
+        .modal-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+        .modal-title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+        .modal-subtitle { font-size: 13px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+        .modal-close {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .modal-close:hover { background: var(--accent-danger); border-color: var(--accent-danger); color: white; transform: rotate(90deg); }
+
+        .modal-body { padding: 32px; overflow-y: auto; flex: 1; }
+        .modal-body::-webkit-scrollbar { width: 8px; }
+        .modal-body::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 4px; }
+        .modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .modal-body::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
+
+        .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 32px; }
+
+        .detail-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .detail-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .detail-value { font-size: 20px; font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+
+        .modal-chart-container { position: relative; height: 250px; margin-top: 24px; }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+
+        /* Nav */
+        .nav-dropdown-wrap { position: fixed; top: 20px; left: 20px; z-index: 1000; }
+
+        .nav-dropdown-trigger {
+            display: flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-dropdown-trigger:hover { border-color: var(--accent-primary); box-shadow: 0 0 24px var(--glow); }
+        .nav-dropdown-trigger .menu-icon { width: 24px; height: 24px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+        .nav-dropdown-trigger .menu-icon span { display: block; height: 2px; background: currentColor; border-radius: 1px; transition: transform 0.2s ease, opacity 0.2s ease; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(1) { width: 20px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(2) { width: 16px; margin-left: 4px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(3) { width: 20px; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(2) { opacity: 0; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .nav-dropdown-panel {
+            position: absolute; top: calc(100% + 8px); left: 0;
+            min-width: 220px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            opacity: 0; visibility: hidden; transform: translateY(-8px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+            z-index: 100; overflow: hidden;
+        }
+
+        .nav-dropdown-wrap.open .nav-dropdown-panel { opacity: 1; visibility: visible; transform: translateY(0); }
+
+        .nav-dropdown-panel a { display: block; padding: 14px 18px; color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; border-bottom: 1px solid var(--border); transition: background 0.15s ease, color 0.15s ease; }
+        .nav-dropdown-panel a:last-child { border-bottom: none; }
+        .nav-dropdown-panel a:hover { background: var(--bg-card); color: var(--accent-primary); }
+        .nav-dropdown-panel a.active { color: var(--accent-primary); background: rgba(0, 255, 136, 0.08); }
+
+        @media (max-width: 1200px) { .controls-section { grid-template-columns: 1fr; } .sensor-grid-view { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
+        @media (max-width: 768px) { .sensor-list-item { grid-template-columns: 1fr; gap: 12px; } .stats-summary { grid-template-columns: repeat(2, 1fr); } .detail-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <div class="nav-dropdown-wrap" id="navDropdownWrap">
+        <button type="button" class="nav-dropdown-trigger" id="navDropdownTrigger" aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+            <div class="menu-icon"><span></span><span></span><span></span></div>
+        </button>
+        <div class="nav-dropdown-panel" id="navDropdownPanel" role="menu">
+            <a href="/csv_dashboard" role="menuitem">BMS Main Dashboard</a>
+            <a href="/home" role="menuitem">BMS Live Dashboard</a>
+            <a href="/historical_data" role="menuitem">Historical Data</a>
+            <a href="/sensor_browser" role="menuitem" class="active">Sensor Browser</a>
+            <a href="/admin" role="menuitem">Add Sensor</a>
+            <a href="/superuser" role="menuitem">User & Admin Settings</a>
+            <a href="/about" role="menuitem">About</a>
+            <a href="/logout" role="menuitem">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- Header -->
+        <header>
+            <div class="header-left">
+                <h1 class="page-title">Sensor Browser</h1>
+            </div>
+            <div class="view-toggle">
+                <button class="view-btn active" onclick="switchView('list')">📋 List</button>
+                <button class="view-btn" onclick="switchView('grid')">▦ Grid</button>
+            </div>
+        </header>
+
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <div class="stat-item">
+                <div class="stat-value" id="totalSensors">--</div>
+                <div class="stat-label">Total Sensors</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="activeSensors">--</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="offlineSensors">--</div>
+                <div class="stat-label">Offline</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="lastUpdate">--</div>
+                <div class="stat-label">Last Updated</div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="controls-section">
+            <div class="search-container">
+                <input type="text" class="search-input" placeholder="Search by sensor name or type..." id="sensorSearch" oninput="filterSensors()">
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select" id="typeFilter" onchange="filterSensors()">
+                <option value="all">All Types</option>
+                <option value="energy">Energy</option>
+                <option value="temperature">Temperature</option>
+                <option value="water">Water</option>
+                <option value="hvac">HVAC</option>
+            </select>
+            <select class="filter-select" id="statusFilter" onchange="filterSensors()">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="offline">Offline</option>
+            </select>
+        </div>
+
+        <!-- Quick Filters -->
+        <div class="quick-filters" id="quickFilters">
+            <button class="filter-chip active" data-type="all" onclick="quickFilter(this, 'all')">
+                All Sensors <span class="count" id="countAll">(--)</span>
+            </button>
+            <button class="filter-chip" data-type="energy" onclick="quickFilter(this, 'energy')">
+                ⚡ Energy <span class="count" id="countEnergy">(--)</span>
+            </button>
+            <button class="filter-chip" data-type="temperature" onclick="quickFilter(this, 'temperature')">
+                🌡️ Temperature <span class="count" id="countTemp">(--)</span>
+            </button>
+            <button class="filter-chip" data-type="water" onclick="quickFilter(this, 'water')">
+                💧 Water <span class="count" id="countWater">(--)</span>
+            </button>
+            <button class="filter-chip" data-type="hvac" onclick="quickFilter(this, 'hvac')">
+                🔥 HVAC <span class="count" id="countHvac">(--)</span>
+            </button>
+        </div>
+
+        <!-- List View -->
+        <div class="sensor-list-view" id="listView">
+            <div style="text-align:center; padding: 60px; color: var(--text-muted);">Loading sensors...</div>
+        </div>
+
+        <!-- Grid View -->
+        <div class="sensor-grid-view hidden" id="gridView">
+            <div style="text-align:center; padding: 60px; color: var(--text-muted);">Loading sensors...</div>
+        </div>
+
+    </div>
+
+    <!-- Sensor Detail Modal -->
+    <div class="modal" id="sensorModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title-section">
+                    <div class="modal-icon icon-energy" id="modalIcon">⚡</div>
+                    <div>
+                        <h2 class="modal-title" id="modalTitle">Sensor Name</h2>
+                        <p class="modal-subtitle" id="modalSubtitle">Loading...</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="detail-label">Current Reading</div>
+                        <div class="detail-value" id="detailReading">--</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value" id="detailStatus" style="color: var(--accent-primary);">● Active</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Last Updated</div>
+                        <div class="detail-value" id="detailLastUpdated">--</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Total Readings (24h)</div>
+                        <div class="detail-value" id="detailCount">--</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Min Value (24h)</div>
+                        <div class="detail-value" id="detailMin">--</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Max Value (24h)</div>
+                        <div class="detail-value" id="detailMax">--</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Average (24h)</div>
+                        <div class="detail-value" id="detailAvg">--</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="detail-label">Unit</div>
+                        <div class="detail-value" id="detailUnit">--</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 16px; color: var(--text-primary);">Last 24 Hours</h3>
+                <div class="modal-chart-container">
+                    <canvas id="modalChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Sensor config — maps DB names to display info ──────
+        const SENSOR_CONFIG = [
+            { name: "GBT Total Consumption",                    display: "Total Consumption",         type: "energy",      icon: "⚡", unit: "kW",  location: "Building Main"       },
+            { name: "GBT Space heating",                        display: "Space Heating",              type: "energy",      icon: "🔥", unit: "kW",  location: "HVAC System"          },
+            { name: "GBT Lighting consumption-TL",              display: "Lighting Consumption",       type: "energy",      icon: "💡", unit: "kW",  location: "Lighting System"      },
+            { name: "GBT Total Generation",                     display: "Total Generation",           type: "energy",      icon: "🔋", unit: "kW",  location: "Solar Array"          },
+            { name: "PV-RooftopSolar_Total",                    display: "Rooftop Solar Total",        type: "energy",      icon: "☀️", unit: "kW",  location: "Rooftop"              },
+            { name: "SaitSolarLab_20000_TL151",                 display: "Solar Lab 20000",            type: "energy",      icon: "⚡", unit: "kW",  location: "Solar Lab"            },
+            { name: "SLAB_Supply_Water_Temp_POLL",              display: "Slab Supply Water Temp",     type: "temperature", icon: "🌡️", unit: "°C",  location: "Heating System"       },
+            { name: "HRV1_Supply_Temp_POLL",                    display: "HRV1 Supply Temp",           type: "temperature", icon: "🌡️", unit: "°C",  location: "HVAC Zone 1"          },
+            { name: "HWS_Outside_Temp_POLL",                    display: "Outside Air Temp",           type: "temperature", icon: "🌡️", unit: "°C",  location: "Exterior"             },
+            { name: "SLAB_Zn1_Basement_Avg_Space_Temp_AV_POLL",display: "Basement Avg Space Temp",    type: "temperature", icon: "🌡️", unit: "°C",  location: "Basement Zone 1"      },
+            { name: "HRV1_SupFan_Amps_POLL",                    display: "HRV1 Supply Fan Current",    type: "hvac",        icon: "🔥", unit: "A",   location: "Ventilation Zone 1"   },
+            { name: "HRV2_SupFan_Amps_POLL",                    display: "HRV2 Supply Fan Current",    type: "hvac",        icon: "🔥", unit: "A",   location: "Ventilation Zone 2"   },
+            { name: "SLAB_P4A_Amps_POLL",                       display: "Slab P4A Current",           type: "hvac",        icon: "🔥", unit: "A",   location: "Heating Pump"         },
+            { name: "HWS_Post_DHW_Tank_Temp_POLL",              display: "DHW Tank Temp",              type: "temperature", icon: "♨️", unit: "°C",  location: "Hot Water System"     },
+            { name: "HWS_P1A_Amps_POLL",                        display: "HWS P1A Current",            type: "hvac",        icon: "🔥", unit: "A",   location: "Hot Water Pump"       },
+            { name: "DHW_P5_Amps_POLL",                         display: "DHW P5 Current",             type: "hvac",        icon: "🔥", unit: "A",   location: "DHW Pump"             },
+            { name: "Rain_Water_Level_POLL",                    display: "Rainwater Tank Level",       type: "water",       icon: "💧", unit: "L",   location: "Rainwater System"     },
+        ];
+
+        // ── State ──────────────────────────────────────────────
+        let liveData     = {};   // { sensorName: { value, timestamp } }
+        let modalChart   = null;
+        let currentView  = 'list';
+        const OFFLINE_MS = 10000; // 10 seconds without update = offline
+
+        // ── Nav dropdown ───────────────────────────────────────
+        (function() {
+            var wrap = document.getElementById('navDropdownWrap');
+            var trigger = document.getElementById('navDropdownTrigger');
+            var panel = document.getElementById('navDropdownPanel');
+            if (!wrap) return;
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                wrap.classList.toggle('open');
+                trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+            });
+            document.addEventListener('click', function() {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+            panel.addEventListener('click', function(e) { e.stopPropagation(); });
+        })();
+
+        // ── Determine sensor type from name (fallback for dynamic sensors) ──
+        function getSensorType(name) {
+            if (name.includes('Temp') || name.includes('Temp')) return 'temperature';
+            if (name.includes('Amps') || name.includes('P1A') || name.includes('P4A') || name.includes('P5')) return 'hvac';
+            if (name.includes('Level') || name.includes('Water') || name.includes('Rain')) return 'water';
+            return 'energy';
+        }
+
+        function getSensorIcon(type) {
+            const icons = { energy: '⚡', temperature: '🌡️', water: '💧', hvac: '🔥' };
+            return icons[type] || '⚡';
+        }
+
+        function getSensorUnit(name) {
+            if (name.includes('Temp')) return '°C';
+            if (name.includes('Amps') || name.includes('P1A') || name.includes('P4A') || name.includes('P5')) return 'A';
+            if (name.includes('Level')) return 'L';
+            return 'kW';
+        }
+
+        // ── Build sensor list from config + any dynamic sensors ──
+        async function buildSensorList(allSensorNames) {
+            const configNames = SENSOR_CONFIG.map(s => s.name);
+            const extraNames  = allSensorNames.filter(n => !configNames.includes(n));
+
+            // Merge config + dynamic sensors
+            const allSensors = [
+                ...SENSOR_CONFIG,
+                ...extraNames.map(name => ({
+                    name,
+                    display:  name.replace(/_POLL/g,'').replace(/_/g,' '),
+                    type:     getSensorType(name),
+                    icon:     getSensorIcon(getSensorType(name)),
+                    unit:     getSensorUnit(name),
+                    location: 'Custom Sensor'
+                }))
+            ];
+
+            renderListView(allSensors);
+            renderGridView(allSensors);
+            updateCounts(allSensors);
+        }
+
+        // ── Render list view ───────────────────────────────────
+        function renderListView(sensors) {
+            const list = document.getElementById('listView');
+            list.innerHTML = sensors.map(s => `
+                <div class="sensor-list-item" data-type="${s.type}" data-sensor-name="${s.name}"
+                     onclick="openSensorDetail('${s.name}')">
+                    <div class="sensor-icon icon-${s.type}">${s.icon}</div>
+                    <div class="sensor-info">
+                        <div class="sensor-name">${s.display}</div>
+                        <div class="sensor-meta">
+                            <span>Type: ${s.type.charAt(0).toUpperCase() + s.type.slice(1)}</span>
+                            <span>Location: ${s.location}</span>
+                            <span>ID: ${s.name}</span>
+                        </div>
+                    </div>
+                    <div class="sensor-value">
+                        <div class="sensor-reading" id="list-val-${s.name.replace(/[\s\-]/g,'_')}">--<span class="sensor-unit">${s.unit}</span></div>
+                        <div class="sensor-status" id="list-ts-${s.name.replace(/[\s\-]/g,'_')}">Waiting for data...</div>
+                    </div>
+                    <div class="sensor-actions">
+                        <button class="action-icon-btn" title="View Detail" onclick="event.stopPropagation(); openSensorDetail('${s.name}')">📊</button>
+                        <button class="action-icon-btn" title="Export" onclick="event.stopPropagation(); exportSensor('${s.name}')">💾</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ── Render grid view ───────────────────────────────────
+        function renderGridView(sensors) {
+            const grid = document.getElementById('gridView');
+            grid.innerHTML = sensors.map(s => `
+                <div class="sensor-grid-item" data-type="${s.type}" data-sensor-name="${s.name}"
+                     onclick="openSensorDetail('${s.name}')">
+                    <div class="grid-header">
+                        <div class="grid-icon icon-${s.type}">${s.icon}</div>
+                        <div class="grid-status" id="grid-dot-${s.name.replace(/[\s\-]/g,'_')}"></div>
+                    </div>
+                    <div class="grid-name">${s.display}</div>
+                    <div class="grid-location">${s.location} • ${s.type.toUpperCase()}</div>
+                    <div class="grid-value" id="grid-val-${s.name.replace(/[\s\-]/g,'_')}">--<span class="sensor-unit">${s.unit}</span></div>
+                    <div class="grid-trend" id="grid-ts-${s.name.replace(/[\s\-]/g,'_')}">
+                        <span style="color: var(--text-muted)">Waiting...</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ── Update counts on filter chips ──────────────────────
+        function updateCounts(sensors) {
+            document.getElementById('countAll').textContent    = `(${sensors.length})`;
+            document.getElementById('countEnergy').textContent = `(${sensors.filter(s=>s.type==='energy').length})`;
+            document.getElementById('countTemp').textContent   = `(${sensors.filter(s=>s.type==='temperature').length})`;
+            document.getElementById('countWater').textContent  = `(${sensors.filter(s=>s.type==='water').length})`;
+            document.getElementById('countHvac').textContent   = `(${sensors.filter(s=>s.type==='hvac').length})`;
+            document.getElementById('totalSensors').textContent = sensors.length;
+        }
+
+        // ── Fetch live data and update DOM ─────────────────────
+        async function updateLiveData() {
+            try {
+                const res  = await fetch('/api/data?limit=100');
+                const data = await res.json();
+                if (!data.length) return;
+
+                const now = Date.now();
+
+                // Build latest value map
+                data.forEach(row => {
+                    if (!liveData[row.name] || row.id > (liveData[row.name].id || 0)) {
+                        liveData[row.name] = {
+                            value:     row.value,
+                            timestamp: row.timestamp,
+                            id:        row.id,
+                            seenAt:    now
+                        };
+                    }
+                });
+
+                // Update all visible sensor items
+                let activeCount  = 0;
+                let offlineCount = 0;
+
+                document.querySelectorAll('[data-sensor-name]').forEach(el => {
+                    const name    = el.getAttribute('data-sensor-name');
+                    const safeId  = name.replace(/[\s\-]/g,'_');
+                    const entry   = liveData[name];
+                    const isOnline = entry && (now - entry.seenAt) < OFFLINE_MS;
+
+                    if (isOnline) {
+                        activeCount++;
+                        const val = entry.value.toFixed(2);
+
+                        // List view
+                        const listVal = document.getElementById(`list-val-${safeId}`);
+                        const listTs  = document.getElementById(`list-ts-${safeId}`);
+                        if (listVal) {
+                            // Keep the unit span
+                            const unit = listVal.querySelector('.sensor-unit');
+                            listVal.innerHTML = val;
+                            if (unit) listVal.appendChild(unit);
+                        }
+                        if (listTs) listTs.textContent = `Updated: ${entry.timestamp.split(' ')[1]}`;
+
+                        // Grid view
+                        const gridVal = document.getElementById(`grid-val-${safeId}`);
+                        const gridTs  = document.getElementById(`grid-ts-${safeId}`);
+                        const gridDot = document.getElementById(`grid-dot-${safeId}`);
+                        if (gridVal) {
+                            const unit = gridVal.querySelector('.sensor-unit');
+                            gridVal.innerHTML = val;
+                            if (unit) gridVal.appendChild(unit);
+                        }
+                        if (gridTs)  gridTs.innerHTML  = `<span style="color:var(--text-muted)">${entry.timestamp.split(' ')[1]}</span>`;
+                        if (gridDot) { gridDot.classList.remove('offline'); }
+
+                        el.classList.remove('offline');
+                    } else {
+                        offlineCount++;
+                        const gridDot = document.getElementById(`grid-dot-${safeId}`);
+                        if (gridDot) gridDot.classList.add('offline');
+                        el.classList.add('offline');
+                    }
+                });
+
+                document.getElementById('activeSensors').textContent  = activeCount;
+                document.getElementById('offlineSensors').textContent  = offlineCount;
+                document.getElementById('lastUpdate').textContent      = new Date().toLocaleTimeString();
+
+            } catch (e) {
+                console.error('Live update failed:', e);
+            }
+        }
+
+        // ── View switching ─────────────────────────────────────
+        function switchView(view) {
+            currentView = view;
+            const listView = document.getElementById('listView');
+            const gridView = document.getElementById('gridView');
+            const buttons  = document.querySelectorAll('.view-btn');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            if (view === 'list') {
+                listView.classList.remove('hidden');
+                gridView.classList.add('hidden');
+                buttons[0].classList.add('active');
+            } else {
+                listView.classList.add('hidden');
+                gridView.classList.remove('hidden');
+                buttons[1].classList.add('active');
+            }
+        }
+
+        // ── Quick filter chips ─────────────────────────────────
+        function quickFilter(element, type) {
+            document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('typeFilter').value = type === 'favorites' ? 'all' : type;
+            filterSensors();
+        }
+
+        // ── Filter sensors ─────────────────────────────────────
+        function filterSensors() {
+            const searchTerm  = document.getElementById('sensorSearch').value.toLowerCase();
+            const typeFilter  = document.getElementById('typeFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            document.querySelectorAll('.sensor-list-item, .sensor-grid-item').forEach(item => {
+                const sensorType = item.getAttribute('data-type');
+                const sensorName = item.querySelector('.sensor-name, .grid-name').textContent.toLowerCase();
+                const isOffline  = item.classList.contains('offline');
+
+                let show = true;
+                if (searchTerm && !sensorName.includes(searchTerm) && !item.getAttribute('data-sensor-name').toLowerCase().includes(searchTerm)) show = false;
+                if (typeFilter !== 'all' && sensorType !== typeFilter) show = false;
+                if (statusFilter === 'active'  && isOffline)  show = false;
+                if (statusFilter === 'offline' && !isOffline) show = false;
+
+                item.style.display = show ? '' : 'none';
+            });
+        }
+
+        // ── Open sensor detail modal ───────────────────────────
+        async function openSensorDetail(sensorName) {
+            const config = SENSOR_CONFIG.find(s => s.name === sensorName) || {
+                name: sensorName,
+                display: sensorName.replace(/_POLL/g,'').replace(/_/g,' '),
+                type: getSensorType(sensorName),
+                icon: getSensorIcon(getSensorType(sensorName)),
+                unit: getSensorUnit(sensorName),
+                location: 'Custom Sensor'
+            };
+
+            // Set modal header
+            document.getElementById('modalTitle').textContent    = config.display;
+            document.getElementById('modalSubtitle').textContent = `${sensorName} • ${config.location}`;
+            document.getElementById('modalIcon').className       = `modal-icon icon-${config.type}`;
+            document.getElementById('modalIcon').textContent     = config.icon;
+            document.getElementById('detailUnit').textContent    = config.unit;
+
+            // Current reading from live data
+            const entry = liveData[sensorName];
+            if (entry) {
+                document.getElementById('detailReading').textContent     = `${entry.value.toFixed(2)} ${config.unit}`;
+                document.getElementById('detailLastUpdated').textContent = entry.timestamp;
+                document.getElementById('detailStatus').innerHTML        = '<span style="color:var(--accent-primary)">● Active</span>';
+            } else {
+                document.getElementById('detailReading').textContent     = '--';
+                document.getElementById('detailLastUpdated').textContent = 'No data';
+                document.getElementById('detailStatus').innerHTML        = '<span style="color:var(--accent-danger)">● Offline</span>';
+            }
+
+            document.getElementById('sensorModal').classList.add('active');
+
+            // Fetch 24h history for this sensor
+            try {
+                const now   = new Date();
+                const start = new Date(now - 86400000); // 24 hours ago
+                const fmt   = d => d.toISOString().replace('T',' ').slice(0,19);
+
+                const res  = await fetch(`/api/historical?sensors=${encodeURIComponent(sensorName)}&start=${fmt(start)}&end=${fmt(now)}`);
+                const rows = await res.json();
+
+                if (rows.length) {
+                    const values = rows.map(r => r.value);
+                    const min    = Math.min(...values);
+                    const max    = Math.max(...values);
+                    const avg    = values.reduce((a,b)=>a+b,0) / values.length;
+
+                    document.getElementById('detailMin').textContent   = `${min.toFixed(2)} ${config.unit}`;
+                    document.getElementById('detailMax').textContent   = `${max.toFixed(2)} ${config.unit}`;
+                    document.getElementById('detailAvg').textContent   = `${avg.toFixed(2)} ${config.unit}`;
+                    document.getElementById('detailCount').textContent = rows.length;
+
+                    // Render mini chart
+                    const ctx    = document.getElementById('modalChart').getContext('2d');
+                    const labels = rows.map(r => r.timestamp.split(' ')[1]);
+                    const data   = rows.map(r => r.value);
+
+                    if (modalChart) { modalChart.destroy(); }
+                    modalChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: config.display,
+                                data,
+                                borderColor:     '#00d4ff',
+                                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                                borderWidth:     2,
+                                pointRadius:     data.length > 100 ? 0 : 2,
+                                fill:            true,
+                                tension:         0.3
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 8 } },
+                                y: { ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 10 }, callback: v => v.toFixed(1) } }
+                            }
+                        }
+                    });
+                } else {
+                    document.getElementById('detailMin').textContent   = '--';
+                    document.getElementById('detailMax').textContent   = '--';
+                    document.getElementById('detailAvg').textContent   = '--';
+                    document.getElementById('detailCount').textContent = '0';
+                }
+            } catch(e) {
+                console.error('Modal chart error:', e);
+            }
+
+            // Close on background click
+            document.getElementById('sensorModal').onclick = function(e) {
+                if (e.target === this) closeModal();
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('sensorModal').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        // ── Export single sensor CSV ───────────────────────────
+        async function exportSensor(sensorName) {
+            try {
+                const now   = new Date();
+                const start = new Date(now - 86400000);
+                const fmt   = d => d.toISOString().replace('T',' ').slice(0,19);
+                const res   = await fetch(`/api/historical?sensors=${encodeURIComponent(sensorName)}&start=${fmt(start)}&end=${fmt(now)}`);
+                const rows  = await res.json();
+
+                if (!rows.length) { alert('No data found for this sensor.'); return; }
+
+                let csv = 'timestamp,sensor_name,value\n';
+                rows.forEach(r => { csv += `${r.timestamp},${r.sensor_name},${r.value}\n`; });
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement('a');
+                a.href     = url;
+                a.download = `${sensorName.replace(/\s/g,'_')}_24h.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch(e) {
+                console.error('Export error:', e);
+            }
+        }
+
+        // ── Init ───────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res     = await fetch('/api/sensor_names');
+                const names   = await res.json();
+                await buildSensorList(names);
+            } catch(e) {
+                document.getElementById('listView').innerHTML =
+                    '<div style="text-align:center;padding:60px;color:var(--text-muted)">Could not load sensors. Is bms_server.py running?</div>';
+            }
+
+            // Start live updates
+            updateLiveData();
+            setInterval(updateLiveData, 3000);
+        });
+    </script>
+</body>
+</html>

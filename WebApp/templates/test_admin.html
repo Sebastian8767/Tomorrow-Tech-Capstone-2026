@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Data - GBTAC BMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #121820;
+            --bg-card: #1a1f2e;
+            --accent-primary: #00ff88;
+            --accent-secondary: #00d4ff;
+            --accent-warning: #ffaa00;
+            --accent-danger: #ff3366;
+            --text-primary: #ffffff;
+            --text-secondary: #8b92a8;
+            --text-muted: #5a6178;
+            --border: #2a3142;
+            --glow: rgba(0, 255, 136, 0.15);
+        }
+
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container { max-width: 1800px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+        header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan { 0% { left: -100%; } 100% { left: 100%; } }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .quick-ranges { display: flex; gap: 8px; }
+
+        .range-btn {
+            padding: 10px 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .range-btn:hover, .range-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: var(--bg-primary);
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover { border-color: var(--accent-primary); box-shadow: 0 4px 16px rgba(0, 255, 136, 0.1); }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .date-group { margin-bottom: 20px; }
+
+        .date-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .date-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .date-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--glow); }
+
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .preset-btn {
+            padding: 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .preset-btn:hover, .preset-btn.active {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .sensor-search {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .sensor-search:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--glow); }
+
+        .sensor-list {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sensor-list::-webkit-scrollbar { width: 6px; }
+        .sensor-list::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 3px; }
+        .sensor-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .sensor-list::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
+
+        .sensor-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sensor-checkbox:hover { border-color: var(--accent-primary); background: rgba(0, 255, 136, 0.05); }
+        .sensor-checkbox input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-primary); }
+        .sensor-checkbox label { flex: 1; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+
+        .btn {
+            width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: var(--bg-primary);
+            box-shadow: 0 4px 16px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0, 255, 136, 0.4); }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+        .main-content { display: flex; flex-direction: column; gap: 24px; }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s ease;
+        }
+
+        .chart-card:hover { border-color: var(--accent-primary); box-shadow: 0 4px 16px rgba(0, 255, 136, 0.1); }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .chart-title { font-size: 20px; font-weight: 600; color: var(--text-primary); }
+
+        .chart-controls { display: flex; gap: 8px; }
+
+        .chart-btn {
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chart-btn:hover, .chart-btn.active {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .chart-container { position: relative; height: 400px; }
+
+        .data-table-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+        }
+
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .table-controls { display: flex; gap: 12px; }
+        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+
+        .data-table { width: 100%; border-collapse: collapse; }
+
+        .data-table th {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .data-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .data-table tr:hover { background: var(--bg-secondary); }
+        .data-table tr:last-child td { border-bottom: none; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover { border-color: var(--accent-primary); box-shadow: 0 4px 16px rgba(0, 255, 136, 0.1); }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+            margin-bottom: 8px;
+        }
+
+        .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .loading { display: none; text-align: center; padding: 60px; color: var(--text-muted); }
+        .loading.active { display: block; }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Nav */
+        .nav-dropdown-wrap { position: fixed; top: 20px; left: 20px; z-index: 1000; }
+
+        .nav-dropdown-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-dropdown-trigger:hover { border-color: var(--accent-primary); box-shadow: 0 0 24px var(--glow); }
+
+        .nav-dropdown-trigger .menu-icon { width: 24px; height: 24px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+        .nav-dropdown-trigger .menu-icon span { display: block; height: 2px; background: currentColor; border-radius: 1px; transition: transform 0.2s ease, opacity 0.2s ease; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(1) { width: 20px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(2) { width: 16px; margin-left: 4px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(3) { width: 20px; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(2) { opacity: 0; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .nav-dropdown-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            min-width: 220px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-8px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .nav-dropdown-wrap.open .nav-dropdown-panel { opacity: 1; visibility: visible; transform: translateY(0); }
+
+        .nav-dropdown-panel a {
+            display: block;
+            padding: 14px 18px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .nav-dropdown-panel a:last-child { border-bottom: none; }
+        .nav-dropdown-panel a:hover { background: var(--bg-card); color: var(--accent-primary); }
+        .nav-dropdown-panel a.active { color: var(--accent-primary); background: rgba(0, 255, 136, 0.08); }
+
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .preset-grid { grid-template-columns: 1fr; }
+            .quick-ranges { flex-wrap: wrap; }
+        }
+
+        /* Source toggle */
+        .source-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 0;
+        }
+
+        .source-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            border-radius: 7px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .source-btn.active {
+            background: var(--accent-secondary);
+            color: var(--bg-primary);
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+
+        .source-btn.active.bms {
+            background: var(--accent-primary);
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .source-indicator {
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <div class="nav-dropdown-wrap" id="navDropdownWrap">
+        <button type="button" class="nav-dropdown-trigger" id="navDropdownTrigger" aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+            <div class="menu-icon"><span></span><span></span><span></span></div>
+        </button>
+        <div class="nav-dropdown-panel" id="navDropdownPanel" role="menu">
+            <a href="/csv_dashboard" role="menuitem">BMS Main Dashboard</a>
+            <a href="/home" role="menuitem">BMS Live Dashboard</a>
+            <a href="/reports" role="menuitem">Reports</a>
+            <a href="/historical" role="menuitem" class="active">Historical Data</a>
+            <a href="/admin" role="menuitem">Add Sensor</a>
+            <a href="/superuser" role="menuitem">User & Admin Settings</a>
+            <a href="/about" role="menuitem">About</a>
+            <a href="/logout" role="menuitem">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-left">
+                <h1 class="page-title">Historical Data</h1>
+            </div>
+
+            <!-- Data Source Toggle -->
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <div class="source-toggle">
+                    <button class="source-btn bms active" id="btnBMS" onclick="switchSource('bms', this)">
+                        🟢 BMS Server
+                    </button>
+                    <button class="source-btn" id="btnAzure" onclick="switchSource('azure', this)">
+                        🔷 Azure Function
+                    </button>
+                </div>
+                <div class="source-indicator" id="sourceIndicator">Reading from dbo.sensor_history</div>
+            </div>
+
+            <div class="quick-ranges">
+                <button class="range-btn" onclick="setQuickRange('24h', this)">24H</button>
+                <button class="range-btn" onclick="setQuickRange('7d', this)">7D</button>
+                <button class="range-btn active" onclick="setQuickRange('30d', this)">30D</button>
+                <button class="range-btn" onclick="setQuickRange('90d', this)">90D</button>
+            </div>
+        </header>
+
+        <!-- Stats Summary — populated dynamically -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotalRecords">--</div>
+                <div class="stat-label">Total Records</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statSensors">--</div>
+                <div class="stat-label">Sensors Tracked</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statDateRange">--</div>
+                <div class="stat-label">Date Range</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgValue">--</div>
+                <div class="stat-label">Avg Value (selected)</div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Sidebar -->
+            <div class="sidebar">
+
+                <!-- Date Range -->
+                <div class="card">
+                    <h3 class="card-title">📅 Custom Date Range</h3>
+                    <div class="date-group">
+                        <label class="date-label">Start Date & Time</label>
+                        <input type="datetime-local" class="date-input" id="startDate">
+                    </div>
+                    <div class="date-group">
+                        <label class="date-label">End Date & Time</label>
+                        <input type="datetime-local" class="date-input" id="endDate">
+                    </div>
+                    <button class="btn btn-secondary" onclick="applyDateRange()">Apply Range</button>
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="card">
+                    <h3 class="card-title">⏱️ Quick Presets</h3>
+                    <div class="preset-grid">
+                        <button class="preset-btn" onclick="setPreset('today', this)">Today</button>
+                        <button class="preset-btn" onclick="setPreset('yesterday', this)">Yesterday</button>
+                        <button class="preset-btn" onclick="setPreset('week', this)">This Week</button>
+                        <button class="preset-btn" onclick="setPreset('month', this)">This Month</button>
+                        <button class="preset-btn" onclick="setPreset('lastWeek', this)">Last Week</button>
+                        <button class="preset-btn active" onclick="setPreset('lastMonth', this)">Last Month</button>
+                    </div>
+                </div>
+
+                <!-- Sensor Selection — dynamically loaded from DB -->
+                <div class="card">
+                    <h3 class="card-title">🎯 Select Sensors</h3>
+                    <input type="text" class="sensor-search" placeholder="Search sensors..." oninput="filterSensors(this.value)">
+                    <div class="sensor-list" id="sensorList">
+                        <div class="empty-state">Loading sensors...</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="selectAllSensors()" style="margin-top: 12px;">Select All</button>
+                </div>
+
+                <!-- Export -->
+                <div class="card">
+                    <h3 class="card-title">💾 Export</h3>
+                    <button class="btn btn-primary" onclick="exportData()">📥 Export CSV</button>
+                </div>
+
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+
+                <!-- Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h2 class="chart-title">Historical Trends</h2>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" onclick="setChartType('line', this)">Line</button>
+                            <button class="chart-btn" onclick="setChartType('bar', this)">Bar</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="historicalChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="data-table-card">
+                    <div class="table-header">
+                        <h2 class="chart-title">Data Records</h2>
+                        <div class="table-controls">
+                            <button class="chart-btn" onclick="downloadTable()">📥 Download CSV</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr id="tableHead">
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 40px;">Apply a date range or select sensors to load data.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loadingState">
+            <div class="loading-spinner"></div>
+            <p>Loading historical data...</p>
+        </div>
+    </div>
+
+        // ── State ──────────────────────────────────────────────
+        let currentChart  = null;
+        let currentType   = 'line';
+        let rawRows       = [];   // all fetched rows — kept for rebuildChart()
+
+        // Colour pool
+        const COLORS = [
+            '#ff3366', '#00ff88', '#00d4ff', '#ffaa00',
+            '#ff6b35', '#a855f7', '#ec4899', '#14b8a6',
+            '#f59e0b', '#6366f1'
+        ];
+
+        // ── Nav dropdown ───────────────────────────────────────
+        (function() {
+            var wrap    = document.getElementById('navDropdownWrap');
+            var trigger = document.getElementById('navDropdownTrigger');
+            var panel   = document.getElementById('navDropdownPanel');
+            if (!wrap) return;
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                wrap.classList.toggle('open');
+                trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+            });
+            document.addEventListener('click', function() {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+            panel.addEventListener('click', function(e) { e.stopPropagation(); });
+        })();
+
+        // ── Initialise empty chart on load ─────────────────────
+        // (groupmate's approach — chart exists before data arrives,
+        //  rebuildChart() populates it without recreating)
+        const ctx = document.getElementById('historicalChart').getContext('2d');
+        currentChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive:          true,
+                maintainAspectRatio: false,
+                animation:           false,
+                interaction:         { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true, position: 'top',
+                        labels: { color: '#8b92a8', font: { family: 'JetBrains Mono', size: 12 }, usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1f2e', titleColor: '#ffffff',
+                        bodyColor: '#8b92a8', borderColor: '#2a3142', borderWidth: 1, padding: 12
+                    }
+                },
+                scales: {
+                    x: { grid: { color: '#2a3142' }, ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 11 }, maxTicksLimit: 12 } },
+                    y: { grid: { color: '#2a3142' }, ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 11 }, callback: v => v.toFixed(1) } }
+                }
+            }
+        });
+
+        // ── Load sensor list from DB on page load ──────────────
+        async function loadSensorList() {
+            try {
+                const res     = await fetch('/api/sensor_names');
+                const sensors = await res.json();
+                const list    = document.getElementById('sensorList');
+
+                if (!sensors.length) {
+                    list.innerHTML = '<div class="empty-state">No sensors found in database.</div>';
+                    return;
+                }
+
+                // No sensors pre-checked — user selects what they want
+                list.innerHTML = sensors.map((name, i) => `
+                    <div class="sensor-checkbox">
+                        <input type="checkbox" id="s_${i}" value="${name}"
+                               onchange="rebuildChart()">
+                        <label for="s_${i}">${name.replace(/_POLL/g,'').replace(/_/g,' ')}</label>
+                    </div>
+                `).join('');
+
+            } catch (e) {
+                document.getElementById('sensorList').innerHTML =
+                    '<div class="empty-state">Could not load sensors. Is bms_server.py running?</div>';
+            }
+        }
+
+        // ── Get currently checked sensors ──────────────────────
+        function getSelectedSensors() {
+            return Array.from(document.querySelectorAll('#sensorList input:checked'))
+                        .map(cb => cb.value);
+        }
+
+        function selectAllSensors() {
+            document.querySelectorAll('#sensorList input[type="checkbox"]')
+                    .forEach(cb => { cb.checked = true; });
+            rebuildChart();
+        }
+
+        function filterSensors(term) {
+            document.querySelectorAll('#sensorList .sensor-checkbox').forEach(el => {
+                const label = el.querySelector('label').textContent.toLowerCase();
+                el.style.display = label.includes(term.toLowerCase()) ? 'flex' : 'none';
+            });
+        }
+
+        // ── Date helpers ───────────────────────────────────────
+        function formatDT(date) {
+            return date.toISOString().replace('T', ' ').slice(0, 19);
+        }
+        function formatInput(date) {
+            return date.toISOString().slice(0, 16);
+        }
+
+        function setPreset(preset, btn) {
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const now = new Date();
+            let start = new Date(), end = new Date();
+            switch (preset) {
+                case 'today':     start.setHours(0,0,0,0); break;
+                case 'yesterday': start.setDate(now.getDate()-1); start.setHours(0,0,0,0); end.setDate(now.getDate()-1); end.setHours(23,59,59,0); break;
+                case 'week':      start.setDate(now.getDate()-now.getDay()); start.setHours(0,0,0,0); break;
+                case 'month':     start.setDate(1); start.setHours(0,0,0,0); break;
+                case 'lastWeek':  start.setDate(now.getDate()-now.getDay()-7); start.setHours(0,0,0,0); end.setDate(now.getDate()-now.getDay()-1); end.setHours(23,59,59,0); break;
+                case 'lastMonth': start.setMonth(now.getMonth()-1); start.setDate(1); start.setHours(0,0,0,0); end.setMonth(now.getMonth()); end.setDate(0); end.setHours(23,59,59,0); break;
+            }
+            document.getElementById('startDate').value = formatInput(start);
+            document.getElementById('endDate').value   = formatInput(end);
+            fetchAndRender();
+        }
+
+        function setQuickRange(range, btn) {
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const now = new Date();
+            let start = new Date();
+            switch (range) {
+                case '24h': start.setHours(now.getHours()-24); break;
+                case '7d':  start.setDate(now.getDate()-7);    break;
+                case '30d': start.setDate(now.getDate()-30);   break;
+                case '90d': start.setDate(now.getDate()-90);   break;
+            }
+            document.getElementById('startDate').value = formatInput(start);
+            document.getElementById('endDate').value   = formatInput(now);
+            fetchAndRender();
+        }
+
+        function applyDateRange() { fetchAndRender(); }
+
+        // ── Core fetch — pulls from /api/historical ────────────
+        async function fetchAndRender() {
+            const sensors = getSelectedSensors();
+            if (!sensors.length) return;
+
+            const start = document.getElementById('startDate').value;
+            const end   = document.getElementById('endDate').value;
+
+            showLoading();
+            try {
+                const startStr = start.replace('T', ' ') + ':00';
+                const endStr   = end.replace('T', ' ')   + ':59';
+                const params   = new URLSearchParams({ start: startStr, end: endStr, sensors: sensors.join(',') });
+
+                const res  = await fetch(`/api/historical?${params}`);
+                rawRows    = await res.json();
+
+                if (!rawRows || rawRows.error) {
+                    console.error('API error:', rawRows);
+                    return;
+                }
+
+                // Sort oldest → newest (same as groupmate)
+                rawRows.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+
+                rebuildChart();
+                renderTable(sensors);
+                updateStats(sensors, start, end);
+
+            } catch (e) {
+                console.error('Fetch error:', e);
+                document.getElementById('tableBody').innerHTML =
+                    '<tr><td colspan="10" style="color:var(--accent-danger);text-align:center;padding:40px;">Failed to load data. Is bms_server.py running?</td></tr>';
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ── rebuildChart — forward-fill approach (groupmate's) ─
+        // Redraws instantly when checkboxes change — no refetch needed
+        function rebuildChart() {
+            const checked = getSelectedSensors();
+            if (!checked.length || !rawRows.length) {
+                currentChart.data = { labels: [], datasets: [] };
+                currentChart.update('none');
+                return;
+            }
+
+            // Build time-ordered unique labels from all rows
+            const allTimestamps = [...new Set(rawRows.map(r => r.timestamp))].sort();
+
+            // Thin labels to avoid clutter (max 20 visible)
+            const step   = Math.max(1, Math.floor(allTimestamps.length / 20));
+            const labels = allTimestamps.map((ts, i) => i % step === 0 ? ts.split(' ')[1] : '');
+
+            // Build datasets with forward-fill per sensor
+            const datasets = checked.map((name, ci) => {
+                let carry = null;
+                const data = allTimestamps.map(ts => {
+                    const match = rawRows.find(r => r.sensor_name === name && r.timestamp === ts);
+                    if (match && match.value != null) carry = match.value;
+                    return carry;
+                });
+                return {
+                    label:            name.replace(/_POLL/g,'').replace(/_/g,' '),
+                    data,
+                    borderColor:      COLORS[ci % COLORS.length],
+                    backgroundColor:  COLORS[ci % COLORS.length] + '1a',
+                    borderWidth:      2,
+                    tension:          0.4,
+                    fill:             currentType === 'area',
+                    pointRadius:      rawRows.length > 300 ? 0 : 2,
+                    pointHoverRadius: 6,
+                    spanGaps:         true   // connects across gaps automatically
+                };
+            });
+
+            currentChart.data = { labels, datasets };
+            currentChart.config.type = currentType === 'area' ? 'line' : currentType;
+            currentChart.update('none');
+        }
+
+        // ── Table render — pivoted view (our version) ──────────
+        function renderTable(sensors) {
+            const byTime = {};
+            rawRows.forEach(r => {
+                if (!byTime[r.timestamp]) byTime[r.timestamp] = {};
+                byTime[r.timestamp][r.sensor_name] = r.value;
+            });
+
+            const head = document.getElementById('tableHead');
+            head.innerHTML = '<th>Timestamp</th>' +
+                sensors.map(s => `<th>${s.replace(/_POLL/g,'').replace(/_/g,' ')}</th>`).join('');
+
+            const times = Object.keys(byTime).sort().reverse().slice(0, 100);
+            const body  = document.getElementById('tableBody');
+
+            if (!times.length) {
+                body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:40px;">No data found for selected range.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = times.map(ts => `
+                <tr>
+                    <td>${ts}</td>
+                    ${sensors.map(s => {
+                        const v = byTime[ts][s];
+                        return `<td>${v !== undefined ? parseFloat(v).toFixed(2) : '--'}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        // ── Stats update (our version) ─────────────────────────
+        function updateStats(sensors, start, end) {
+            document.getElementById('statTotalRecords').textContent = rawRows.length.toLocaleString();
+            document.getElementById('statSensors').textContent      = sensors.length;
+            if (start && end) {
+                const days = Math.round((new Date(end) - new Date(start)) / 86400000);
+                document.getElementById('statDateRange').textContent = days <= 1 ? 'Today' : `${days} Days`;
+            }
+            if (rawRows.length) {
+                const avg = rawRows.reduce((sum, r) => sum + (r.value || 0), 0) / rawRows.length;
+                document.getElementById('statAvgValue').textContent = avg.toFixed(1);
+            }
+        }
+
+        // ── Chart type toggle ──────────────────────────────────
+        function setChartType(type, btn) {
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            currentType = type;
+            rebuildChart();
+        }
+
+        // ── Export CSV ─────────────────────────────────────────
+        function exportData() {
+            if (!rawRows.length) { alert('No data loaded. Apply a date range first.'); return; }
+            const sensors = getSelectedSensors();
+            const byTime  = {};
+            rawRows.forEach(r => {
+                if (!byTime[r.timestamp]) byTime[r.timestamp] = {};
+                byTime[r.timestamp][r.sensor_name] = r.value;
+            });
+            const headers = ['timestamp', ...sensors];
+            let csv = headers.join(',') + '\n';
+            Object.keys(byTime).sort().forEach(ts => {
+                const row = [ts, ...sensors.map(s => byTime[ts][s] !== undefined ? byTime[ts][s] : '')];
+                csv += row.join(',') + '\n';
+            });
+            const now  = new Date();
+            const date = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url; a.download = `GBTAC_Historical_${date}.csv`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadTable() { exportData(); }
+
+        // ── Loading helpers ────────────────────────────────────
+        function showLoading() { document.getElementById('loadingState').classList.add('active'); }
+        function hideLoading()  { document.getElementById('loadingState').classList.remove('active'); }
+
+        // ── Init ───────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSensorList();
+            setQuickRange('24h', document.querySelector('.range-btn'));
+        });
+    </script>
+</body>
+</html>    <script>
+        // ── Config ─────────────────────────────────────────────
+        const AZURE_FUNCTION_URL = 'https://testrungb-f4gsb3badaeybrfr.canadacentral-01.azurewebsites.net/api/readings';
+
+        // ── State ──────────────────────────────────────────────
+        let currentChart  = null;
+        let currentType   = 'line';
+        let rawRows       = [];
+        let activeSource  = 'bms';   // 'bms' or 'azure'
+
+        // Colour pool
+        const COLORS = [
+            '#ff3366', '#00ff88', '#00d4ff', '#ffaa00',
+            '#ff6b35', '#a855f7', '#ec4899', '#14b8a6',
+            '#f59e0b', '#6366f1'
+        ];
+
+        // ── Nav dropdown ───────────────────────────────────────
+        (function() {
+            var wrap    = document.getElementById('navDropdownWrap');
+            var trigger = document.getElementById('navDropdownTrigger');
+            var panel   = document.getElementById('navDropdownPanel');
+            if (!wrap) return;
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                wrap.classList.toggle('open');
+                trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+            });
+            document.addEventListener('click', function() {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+            panel.addEventListener('click', function(e) { e.stopPropagation(); });
+        })();
+
+        // ── Initialise empty chart on load ─────────────────────
+        const ctx = document.getElementById('historicalChart').getContext('2d');
+        currentChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true, position: 'top',
+                        labels: { color: '#8b92a8', font: { family: 'JetBrains Mono', size: 12 }, usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1f2e', titleColor: '#ffffff',
+                        bodyColor: '#8b92a8', borderColor: '#2a3142', borderWidth: 1, padding: 12
+                    }
+                },
+                scales: {
+                    x: { grid: { color: '#2a3142' }, ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 11 }, maxTicksLimit: 12 } },
+                    y: { grid: { color: '#2a3142' }, ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 11 }, callback: v => v.toFixed(1) } }
+                }
+            }
+        });
+
+        // ── Source switcher ────────────────────────────────────
+        async function switchSource(source, btn) {
+            activeSource = source;
+
+            // Update toggle buttons
+            document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update indicator text
+            const indicator = document.getElementById('sourceIndicator');
+            if (source === 'bms') {
+                indicator.textContent = 'Reading from dbo.sensor_history via /api/historical';
+                // Reload sensor list from BMS server
+                await loadSensorList();
+                fetchAndRender();
+            } else {
+                indicator.textContent = 'Reading from dbo.StagingReadings via Azure Function';
+                // Azure Function has its own sensor discovery
+                await loadAzureSensors();
+                fetchAndRender();
+            }
+        }
+
+        // ── BMS sensor list (from /api/sensor_names) ───────────
+        async function loadSensorList() {
+            const list = document.getElementById('sensorList');
+            list.innerHTML = '<div class="empty-state">Loading sensors...</div>';
+            try {
+                const res     = await fetch('/api/sensor_names');
+                const sensors = await res.json();
+                if (!sensors.length) {
+                    list.innerHTML = '<div class="empty-state">No sensors found in database.</div>';
+                    return;
+                }
+                list.innerHTML = sensors.map((name, i) => `
+                    <div class="sensor-checkbox">
+                        <input type="checkbox" id="s_${i}" value="${name}"
+                               onchange="rebuildChart()">
+                        <label for="s_${i}">${name.replace(/_POLL/g,'').replace(/_/g,' ')}</label>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Could not reach /api/sensor_names.</div>';
+            }
+        }
+
+        // ── Azure Function sensor list (discovered from data) ──
+        async function loadAzureSensors() {
+            const list = document.getElementById('sensorList');
+            list.innerHTML = '<div class="empty-state">Loading from Azure Function...</div>';
+            try {
+                const res  = await fetch(AZURE_FUNCTION_URL);
+                const data = await res.json();
+                // rawRows already set — extract unique source_tags
+                const tags = [...new Set(data.map(r => r.source_tag).filter(Boolean))].sort();
+                if (!tags.length) {
+                    list.innerHTML = '<div class="empty-state">No sensor tags found.</div>';
+                    return;
+                }
+                list.innerHTML = tags.map((name, i) => `
+                    <div class="sensor-checkbox">
+                        <input type="checkbox" id="s_${i}" value="${name}"
+                               onchange="rebuildChart()">
+                        <label for="s_${i}">${name.replace(/_POLL/g,'').replace(/_/g,' ')}</label>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Could not reach Azure Function.</div>';
+            }
+        }
+
+        // ── Get currently checked sensors ──────────────────────
+        function getSelectedSensors() {
+            return Array.from(document.querySelectorAll('#sensorList input:checked'))
+                        .map(cb => cb.value);
+        }
+
+        function selectAllSensors() {
+            document.querySelectorAll('#sensorList input[type="checkbox"]')
+                    .forEach(cb => { cb.checked = true; });
+            rebuildChart();
+        }
+
+        function filterSensors(term) {
+            document.querySelectorAll('#sensorList .sensor-checkbox').forEach(el => {
+                const label = el.querySelector('label').textContent.toLowerCase();
+                el.style.display = label.includes(term.toLowerCase()) ? 'flex' : 'none';
+            });
+        }
+
+        // ── Date helpers ───────────────────────────────────────
+        function formatDT(date)    { return date.toISOString().replace('T', ' ').slice(0, 19); }
+        function formatInput(date) { return date.toISOString().slice(0, 16); }
+
+        function setPreset(preset, btn) {
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const now = new Date();
+            let start = new Date(), end = new Date();
+            switch (preset) {
+                case 'today':     start.setHours(0,0,0,0); break;
+                case 'yesterday': start.setDate(now.getDate()-1); start.setHours(0,0,0,0); end.setDate(now.getDate()-1); end.setHours(23,59,59,0); break;
+                case 'week':      start.setDate(now.getDate()-now.getDay()); start.setHours(0,0,0,0); break;
+                case 'month':     start.setDate(1); start.setHours(0,0,0,0); break;
+                case 'lastWeek':  start.setDate(now.getDate()-now.getDay()-7); start.setHours(0,0,0,0); end.setDate(now.getDate()-now.getDay()-1); end.setHours(23,59,59,0); break;
+                case 'lastMonth': start.setMonth(now.getMonth()-1); start.setDate(1); start.setHours(0,0,0,0); end.setMonth(now.getMonth()); end.setDate(0); end.setHours(23,59,59,0); break;
+            }
+            document.getElementById('startDate').value = formatInput(start);
+            document.getElementById('endDate').value   = formatInput(end);
+            fetchAndRender();
+        }
+
+        function setQuickRange(range, btn) {
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const now = new Date();
+            let start = new Date();
+            switch (range) {
+                case '24h': start.setHours(now.getHours()-24); break;
+                case '7d':  start.setDate(now.getDate()-7);    break;
+                case '30d': start.setDate(now.getDate()-30);   break;
+                case '90d': start.setDate(now.getDate()-90);   break;
+            }
+            document.getElementById('startDate').value = formatInput(start);
+            document.getElementById('endDate').value   = formatInput(now);
+            fetchAndRender();
+        }
+
+        function applyDateRange() { fetchAndRender(); }
+
+        // ── Core fetch — routes to correct source ──────────────
+        async function fetchAndRender() {
+            if (activeSource === 'bms') {
+                await fetchBMS();
+            } else {
+                await fetchAzureFunction();
+            }
+        }
+
+        // ── Fetch from BMS /api/historical ─────────────────────
+        async function fetchBMS() {
+            const sensors = getSelectedSensors();
+            if (!sensors.length) return;
+            const start = document.getElementById('startDate').value;
+            const end   = document.getElementById('endDate').value;
+            showLoading();
+            try {
+                const params = new URLSearchParams({
+                    start:   start.replace('T', ' ') + ':00',
+                    end:     end.replace('T', ' ')   + ':59',
+                    sensors: sensors.join(',')
+                });
+                const res = await fetch(`/api/historical?${params}`);
+                const data = await res.json();
+                if (!data || data.error) throw new Error(data.error || 'Unknown error');
+
+                // Normalise to common schema: { timestamp, sensor_name, value }
+                rawRows = data.map(r => ({
+                    timestamp:   r.timestamp,
+                    sensor_name: r.sensor_name,
+                    value:       r.value
+                }));
+
+                rawRows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+                rebuildChart();
+                renderTable(sensors);
+                updateStats(sensors, start, end);
+            } catch (e) {
+                console.error('BMS fetch error:', e);
+                showError(e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ── Fetch from Azure Function /api/readings ────────────
+        async function fetchAzureFunction() {
+            showLoading();
+            try {
+                const res  = await fetch(AZURE_FUNCTION_URL);
+                const data = await res.json();
+                if (!data || data.error) throw new Error(data.error || 'Unknown error');
+
+                // Filter by date range
+                const start = new Date(document.getElementById('startDate').value);
+                const end   = new Date(document.getElementById('endDate').value);
+
+                const filtered = data.filter(r => {
+                    if (!r.observed_at) return true;
+                    const d = new Date(r.observed_at);
+                    return d >= start && d <= end;
+                });
+
+                // Get checked sensors — if none checked yet use all
+                const checked = getSelectedSensors();
+                const toShow  = checked.length ? checked : [...new Set(data.map(r => r.source_tag).filter(Boolean))];
+
+                // Normalise to common schema
+                rawRows = filtered
+                    .filter(r => toShow.includes(r.source_tag))
+                    .map(r => ({
+                        timestamp:   r.observed_at || r.ingested_at || '',
+                        sensor_name: r.source_tag  || '',
+                        value:       r.value_number != null ? parseFloat(r.value_number) : null
+                    }))
+                    .filter(r => r.value !== null);
+
+                rawRows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+                rebuildChart();
+                renderTable(toShow);
+                updateStats(toShow,
+                    document.getElementById('startDate').value,
+                    document.getElementById('endDate').value
+                );
+            } catch (e) {
+                console.error('Azure Function fetch error:', e);
+                showError(e.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ── rebuildChart — forward-fill, works for both sources ─
+        function rebuildChart() {
+            const checked = getSelectedSensors();
+            if (!checked.length || !rawRows.length) {
+                currentChart.data = { labels: [], datasets: [] };
+                currentChart.update('none');
+                return;
+            }
+
+            const allTimestamps = [...new Set(rawRows.map(r => r.timestamp))].sort();
+            const step   = Math.max(1, Math.floor(allTimestamps.length / 20));
+            const labels = allTimestamps.map((ts, i) => i % step === 0 ? ts.split('T')[0] === ts.split(' ')[0] ? ts.split(' ')[1] || ts : ts.split('T')[1]?.slice(0,5) || ts : '');
+
+            const datasets = checked.map((name, ci) => {
+                let carry = null;
+                const data = allTimestamps.map(ts => {
+                    const match = rawRows.find(r => r.sensor_name === name && r.timestamp === ts);
+                    if (match && match.value != null) carry = match.value;
+                    return carry;
+                });
+                return {
+                    label:            name.replace(/_POLL/g,'').replace(/_/g,' '),
+                    data,
+                    borderColor:      COLORS[ci % COLORS.length],
+                    backgroundColor:  COLORS[ci % COLORS.length] + '1a',
+                    borderWidth:      2,
+                    tension:          0.4,
+                    fill:             currentType === 'area',
+                    pointRadius:      rawRows.length > 300 ? 0 : 2,
+                    pointHoverRadius: 6,
+                    spanGaps:         true
+                };
+            });
+
+            currentChart.data = { labels, datasets };
+            currentChart.config.type = currentType === 'area' ? 'line' : currentType;
+            currentChart.update('none');
+        }
+
+        // ── Table render — pivoted view ─────────────────────────
+        function renderTable(sensors) {
+            const byTime = {};
+            rawRows.forEach(r => {
+                if (!byTime[r.timestamp]) byTime[r.timestamp] = {};
+                byTime[r.timestamp][r.sensor_name] = r.value;
+            });
+
+            const head = document.getElementById('tableHead');
+            head.innerHTML = '<th>Timestamp</th>' +
+                sensors.map(s => `<th>${s.replace(/_POLL/g,'').replace(/_/g,' ')}</th>`).join('');
+
+            const times = Object.keys(byTime).sort().reverse().slice(0, 100);
+            const body  = document.getElementById('tableBody');
+
+            if (!times.length) {
+                body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:40px;">No data found for selected range.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = times.map(ts => `
+                <tr>
+                    <td>${ts}</td>
+                    ${sensors.map(s => {
+                        const v = byTime[ts][s];
+                        return `<td>${v !== undefined ? parseFloat(v).toFixed(2) : '--'}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        // ── Stats ──────────────────────────────────────────────
+        function updateStats(sensors, start, end) {
+            document.getElementById('statTotalRecords').textContent = rawRows.length.toLocaleString();
+            document.getElementById('statSensors').textContent      = sensors.length;
+            if (start && end) {
+                const days = Math.round((new Date(end) - new Date(start)) / 86400000);
+                document.getElementById('statDateRange').textContent = days <= 1 ? 'Today' : `${days} Days`;
+            }
+            if (rawRows.length) {
+                const vals = rawRows.filter(r => r.value != null).map(r => r.value);
+                const avg  = vals.reduce((s, v) => s + v, 0) / vals.length;
+                document.getElementById('statAvgValue').textContent = avg.toFixed(1);
+            }
+        }
+
+        // ── Chart type toggle ──────────────────────────────────
+        function setChartType(type, btn) {
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            currentType = type;
+            rebuildChart();
+        }
+
+        // ── Export CSV ─────────────────────────────────────────
+        function exportData() {
+            if (!rawRows.length) { alert('No data loaded. Apply a date range first.'); return; }
+            const sensors = getSelectedSensors();
+            const byTime  = {};
+            rawRows.forEach(r => {
+                if (!byTime[r.timestamp]) byTime[r.timestamp] = {};
+                byTime[r.timestamp][r.sensor_name] = r.value;
+            });
+            const headers = ['timestamp', ...sensors];
+            let csv = headers.join(',') + '\n';
+            Object.keys(byTime).sort().forEach(ts => {
+                const row = [ts, ...sensors.map(s => byTime[ts][s] !== undefined ? byTime[ts][s] : '')];
+                csv += row.join(',') + '\n';
+            });
+            const now  = new Date();
+            const date = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            const src  = activeSource === 'bms' ? 'BMS' : 'AzureFunction';
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url; a.download = `GBTAC_Historical_${src}_${date}.csv`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadTable() { exportData(); }
+
+        // ── Helpers ────────────────────────────────────────────
+        function showLoading() { document.getElementById('loadingState').classList.add('active'); }
+        function hideLoading()  { document.getElementById('loadingState').classList.remove('active'); }
+        function showError(msg) {
+            document.getElementById('tableBody').innerHTML =
+                `<tr><td colspan="10" style="color:var(--accent-danger);text-align:center;padding:40px;">Error: ${msg}</td></tr>`;
+        }
+
+        // ── Init ───────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSensorList();
+            setQuickRange('24h', document.querySelector('.range-btn'));
+        });
+    </script>
+</body>
+</html>

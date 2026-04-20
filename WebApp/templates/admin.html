@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMS Admin | GBTAC</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary:       #0a0e14;
+            --bg-secondary:     #121820;
+            --bg-card:          #1a1f2e;
+            --accent-primary:   #00ff88;
+            --accent-secondary: #00d4ff;
+            --accent-warning:   #ffaa00;
+            --accent-danger:    #ff3366;
+            --text-primary:     #ffffff;
+            --text-secondary:   #8b92a8;
+            --text-muted:       #5a6178;
+            --border:           #2a3142;
+            --glow:             rgba(0, 255, 136, 0.15);
+        }
+
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Ambient background glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 20px 20px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Header ───────────────────────────────────────── */
+        header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan {
+            0%   { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .logo { display: flex; align-items: center; gap: 16px; }
+
+        .logo-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700; font-size: 16px;
+            color: var(--bg-primary);
+            box-shadow: 0 4px 16px rgba(0, 255, 136, 0.3);
+        }
+
+        .logo-text h1 {
+            font-size: 20px; font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-text p {
+            font-size: 12px; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 2px;
+        }
+
+        .header-status { display: flex; align-items: center; gap: 8px; }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent-warning);
+            box-shadow: 0 0 12px var(--accent-warning);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.6; transform: scale(0.9); }
+        }
+
+        .status-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px; color: var(--accent-warning);
+            letter-spacing: 0.05em;
+        }
+
+        /* ── Floating Nav (fixed top-left) ────────────────── */
+        .nav-dropdown-wrap {
+            position: fixed;
+            top: 20px; left: 20px;
+            z-index: 1000;
+        }
+
+        .nav-dropdown-trigger {
+            display: flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .nav-dropdown-trigger:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 24px var(--glow);
+        }
+
+        .nav-dropdown-trigger .menu-icon {
+            width: 24px; height: 24px;
+            display: flex; flex-direction: column;
+            justify-content: center; gap: 5px;
+        }
+
+        .nav-dropdown-trigger .menu-icon span {
+            display: block; height: 2px;
+            background: currentColor; border-radius: 1px;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .nav-dropdown-trigger .menu-icon span:nth-child(1) { width: 20px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(2) { width: 16px; margin-left: 4px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(3) { width: 20px; }
+
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(2) { opacity: 0; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .nav-dropdown-panel {
+            position: absolute;
+            top: calc(100% + 8px); left: 0;
+            min-width: 220px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+            opacity: 0; visibility: hidden;
+            transform: translateY(-8px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+            z-index: 100; overflow: hidden;
+        }
+
+        .nav-dropdown-wrap.open .nav-dropdown-panel {
+            opacity: 1; visibility: visible;
+            transform: translateY(0);
+        }
+
+        .nav-dropdown-panel a {
+            display: block; padding: 14px 18px;
+            color: var(--text-secondary);
+            text-decoration: none; font-size: 14px; font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .nav-dropdown-panel a:last-child { border-bottom: none; }
+        .nav-dropdown-panel a:hover { background: var(--bg-card); color: var(--accent-primary); }
+        .nav-dropdown-panel a.active { color: var(--accent-primary); background: rgba(0,255,136,0.08); }
+
+        /* ── Tab Bar ──────────────────────────────────────── */
+        .tab-bar {
+            display: flex; gap: 4px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 5px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1; padding: 11px 0;
+            background: none; border: none;
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+            letter-spacing: 0.03em;
+        }
+
+        .tab-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(0,255,136,0.12), rgba(0,212,255,0.08));
+            color: var(--accent-primary);
+            border: 1px solid rgba(0,255,136,0.2);
+        }
+
+        .tab-badge {
+            display: inline-block;
+            background: rgba(0,255,136,0.15);
+            color: var(--accent-primary);
+            font-size: 10px; padding: 1px 7px;
+            border-radius: 20px; margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        /* ── Tab Panels ───────────────────────────────────── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Card ─────────────────────────────────────────── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 32px;
+            position: relative; overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:focus-within::before { opacity: 1; }
+
+        .card-title {
+            font-size: 13px; font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 24px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .card-title span.icon { font-size: 16px; }
+
+        /* ── Form Elements ────────────────────────────────── */
+        .form-label {
+            display: block;
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px var(--glow);
+        }
+
+        .form-input::placeholder { color: var(--text-muted); }
+
+        select.form-input {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6178' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+
+        .form-row { margin-bottom: 20px; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .range-inputs {
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .range-inputs .form-input { flex: 1; }
+
+        .range-sep {
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px; flex-shrink: 0;
+        }
+
+        /* ── Buttons ──────────────────────────────────────── */
+        .btn-primary {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none; border-radius: 10px;
+            color: var(--bg-primary);
+            font-family: 'Sora', sans-serif;
+            font-size: 14px; font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,255,136,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            letter-spacing: 0.02em;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,255,136,0.4);
+        }
+
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-secondary {
+            padding: 14px 28px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-family: 'Sora', sans-serif;
+            font-size: 14px; font-weight: 600;
+            cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .btn-actions {
+            display: flex; gap: 12px;
+            margin-top: 28px;
+        }
+
+        .btn-actions .btn-primary { flex: 2; }
+        .btn-actions .btn-secondary { flex: 1; }
+
+        /* ── Info Banner ──────────────────────────────────── */
+        .info-banner {
+            display: flex; gap: 16px; align-items: flex-start;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-secondary);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-top: 20px;
+        }
+
+        .info-banner-icon {
+            font-size: 22px; flex-shrink: 0; margin-top: 1px;
+        }
+
+        .info-banner-text h4 {
+            font-size: 13px; font-weight: 600;
+            color: var(--accent-secondary);
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+
+        .info-banner-text p {
+            font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+        }
+
+        /* ── Manage Tab — Stats bar ───────────────────────── */
+        .stats-bar { display: flex; gap: 14px; margin-bottom: 20px; }
+
+        .stat-chip {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 20px;
+        }
+
+        .stat-chip .chip-val {
+            font-size: 22px; font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+        }
+
+        .stat-chip .chip-label {
+            font-size: 11px; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 3px;
+        }
+
+        /* ── Sensor Table ─────────────────────────────────── */
+        .table-wrap {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        table.sensor-table {
+            width: 100%; border-collapse: collapse;
+        }
+
+        .sensor-table thead { background: rgba(255,255,255,0.03); }
+
+        .sensor-table th {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.12em;
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sensor-table td {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; color: var(--text-primary);
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+
+        .sensor-table tbody tr:last-child td { border-bottom: none; }
+
+        .sensor-table tbody tr {
+            transition: background 0.15s;
+        }
+
+        .sensor-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        .unit-pill {
+            display: inline-block;
+            background: rgba(0,212,255,0.1);
+            border: 1px solid rgba(0,212,255,0.25);
+            color: var(--accent-secondary);
+            font-size: 11px; padding: 2px 10px;
+            border-radius: 20px;
+        }
+
+        .orphan-pill {
+            display: inline-block;
+            background: rgba(255,170,0,0.1);
+            border: 1px solid rgba(255,170,0,0.3);
+            color: var(--accent-warning);
+            font-size: 11px; padding: 2px 10px;
+            border-radius: 20px;
+        }
+
+        .muted { color: var(--text-muted); }
+
+        /* ── Delete Button ────────────────────────────────── */
+        .btn-delete {
+            padding: 6px 14px;
+            background: rgba(255,51,102,0.08);
+            border: 1px solid rgba(255,51,102,0.25);
+            border-radius: 8px;
+            color: var(--accent-danger);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .btn-delete:hover {
+            background: rgba(255,51,102,0.18);
+            border-color: rgba(255,51,102,0.5);
+        }
+
+        .btn-delete:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* ── Section subheader (Unregistered) ─────────────── */
+        .section-subheader {
+            display: flex; align-items: center; gap: 12px;
+            margin: 28px 0 14px;
+        }
+
+        .section-subheader h3 {
+            font-size: 14px; font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section-subheader p {
+            font-size: 12px; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 10px; margin-bottom: 14px; line-height: 1.6;
+        }
+
+        /* ── Empty State ──────────────────────────────────── */
+        .empty-state {
+            text-align: center; padding: 52px 20px;
+        }
+
+        .empty-state .empty-icon { font-size: 36px; margin-bottom: 14px; opacity: 0.4; }
+
+        .empty-state p {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; color: var(--text-muted); line-height: 1.7;
+        }
+
+        /* ── Warning note ─────────────────────────────────── */
+        .warning-note {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; color: var(--text-muted);
+            margin-top: 14px; line-height: 1.6;
+        }
+
+        .warning-note strong { color: var(--text-secondary); }
+
+        /* ── Confirm Modal ────────────────────────────────── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(10,14,20,0.92);
+            z-index: 2000;
+            align-items: center; justify-content: center;
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px 40px;
+            max-width: 420px; width: 90%;
+            text-align: center;
+            animation: slideUp 0.25s ease;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative; overflow: hidden;
+        }
+
+        .modal-box::before {
+            content: '';
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, var(--accent-danger), transparent);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .modal-box h3 {
+            font-size: 20px; font-weight: 700;
+            color: var(--text-primary); margin-bottom: 12px;
+        }
+
+        .modal-box p {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px; color: var(--text-secondary);
+            line-height: 1.7; margin-bottom: 28px;
+        }
+
+        .modal-box p strong { color: var(--accent-danger); }
+
+        .modal-actions { display: flex; gap: 12px; justify-content: center; }
+
+        .btn-modal-cancel {
+            padding: 11px 24px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .btn-modal-cancel:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+        .btn-modal-confirm {
+            padding: 11px 24px;
+            background: var(--accent-danger);
+            border: none; border-radius: 10px;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(255,51,102,0.3);
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .btn-modal-confirm:hover { background: #e02255; transform: translateY(-1px); }
+
+        /* ── Toast ────────────────────────────────────────── */
+        .toast-wrap {
+            position: fixed;
+            bottom: 32px; right: 32px;
+            z-index: 3000;
+        }
+
+        .toast-inner {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; color: var(--text-primary);
+            display: flex; align-items: center; gap: 12px;
+            transform: translateY(80px); opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            min-width: 280px;
+        }
+
+        .toast-wrap.show .toast-inner { transform: translateY(0); opacity: 1; }
+        .toast-wrap.success .toast-inner { border-color: rgba(0,255,136,0.4); }
+        .toast-wrap.error   .toast-inner { border-color: rgba(255,51,102,0.4); }
+
+        .toast-close {
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; margin-left: auto; font-size: 16px;
+            transition: color 0.2s;
+        }
+
+        .toast-close:hover { color: var(--text-primary); }
+    </style>
+</head>
+<body>
+
+    <!-- ── Floating Nav ──────────────────────────────────── -->
+    <div class="nav-dropdown-wrap" id="navDropdownWrap">
+        <button type="button" class="nav-dropdown-trigger" id="navDropdownTrigger"
+            aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+            <div class="menu-icon"><span></span><span></span><span></span></div>
+        </button>
+        <div class="nav-dropdown-panel" id="navDropdownPanel" role="menu">
+            <a href="/csv_dashboard" role="menuitem">BMS Main Dashboard</a>
+            <a href="/home" role="menuitem" class="active">BMS Live Dashboard</a>
+            <a href="/user_admin_settings" role="menuitem">User Admin Settings</a>
+            <a href="/sensor_browser" role="menuitem">Sensor Browser</a>
+            <a href="/historical_data" role="menuitem">Historical Data</a>
+            <a href="/about" role="menuitem">About</a>
+            <a href="/logout" role="menuitem">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- ── Header ──────────────────────────────────────── -->
+        <header>
+            <div class="logo">
+                <div class="logo-icon">ADM</div>
+                <div class="logo-text">
+                    <h1>System Administration</h1>
+                    <p>Database Management & Sensor Registration</p>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-dot"></div>
+                <span class="status-text">ADMIN MODE</span>
+            </div>
+        </header>
+
+        <!-- ── Tab Bar ─────────────────────────────────────── -->
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab-register" onclick="switchTab('register')">
+                ＋ Register Sensor
+            </button>
+            <button class="tab-btn" id="tab-manage" onclick="switchTab('manage')">
+                🗂 Manage Sensors
+                {% if sensors %}
+                <span class="tab-badge" id="tabBadge">{{ sensors|length }}</span>
+                {% else %}
+                <span class="tab-badge" id="tabBadge" style="display:none;">0</span>
+                {% endif %}
+            </button>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- TAB 1 — Register New Sensor                        -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <div class="tab-panel active" id="panel-register">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">📡</span> Register New Sensor
+                </div>
+
+                <form class="admin-form" autocomplete="off">
+                    <div class="form-row">
+                        <label class="form-label">Sensor Identifier</label>
+                        <input type="text" name="sensor_name" class="form-input"
+                            placeholder="e.g., Room_B202_Temp" required>
+                    </div>
+
+                    <div class="form-grid">
+                        <div>
+                            <label class="form-label">Data Unit</label>
+                            <select name="unit" class="form-input">
+                                <option value="kW">kW — Energy</option>
+                                <option value="°C">°C — Temperature</option>
+                                <option value="A">A — Current</option>
+                                <option value="%">% — Humidity / Level</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Simulated Range</label>
+                            <div class="range-inputs">
+                                <input type="number" name="min_val" step="0.1"
+                                    class="form-input" placeholder="Min" required>
+                                <span class="range-sep">–</span>
+                                <input type="number" name="max_val" step="0.1"
+                                    class="form-input" placeholder="Max" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="btn-actions">
+                        <button type="submit" class="btn-primary">
+                            ⚡ Confirm &amp; Inject Sensor
+                        </button>
+                        <a href="/" class="btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+
+            <div class="info-banner">
+                <div class="info-banner-icon">🚀</div>
+                <div class="info-banner-text">
+                    <h4>Simulation Discovery</h4>
+                    <p>
+                        Registering a sensor pushes a live command to the <strong>Client Script</strong>.
+                        Data generation begins instantly — no restart required. The sensor is also saved
+                        to the database and will reload automatically on the next datagen restart.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- TAB 2 — Manage Sensors                             -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <div class="tab-panel" id="panel-manage">
+
+            <!-- Stats bar -->
+            <div class="stats-bar">
+                <div class="stat-chip">
+                    <div class="chip-val" id="totalCount">{{ sensors|length }}</div>
+                    <div class="chip-label">Registered Sensors</div>
+                </div>
+            </div>
+
+            <!-- Registered Sensors Table -->
+            <div class="table-wrap" id="registeredTableWrap">
+                {% if sensors %}
+                <table class="sensor-table">
+                    <thead>
+                        <tr>
+                            <th>Sensor Name</th>
+                            <th>Unit</th>
+                            <th>Sim Range</th>
+                            <th>Registered At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sensorTableBody">
+                        {% for s in sensors %}
+                        <tr id="srow-{{ loop.index }}">
+                            <td><strong>{{ s[1] }}</strong></td>
+                            <td><span class="unit-pill">{{ s[2] }}</span></td>
+                            <td class="muted">{{ s[3] }} – {{ s[4] }}</td>
+                            <td class="muted">{{ s[5] }}</td>
+                            <td>
+                                <button class="btn-delete"
+                                    onclick="confirmDelete('{{ s[1] }}', 'srow-{{ loop.index }}', false)">
+                                    🗑 Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state" id="registeredEmptyState">
+                    <div class="empty-icon">📭</div>
+                    <p>No registered sensors yet.<br>
+                        Use the <strong style="color:var(--accent-primary); cursor:pointer;"
+                            onclick="switchTab('register')">Register Sensor</strong> tab to add one.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            <p class="warning-note">
+                ⚠ Deleting a sensor removes it from the registry <strong>and</strong> wipes all its
+                readings from the database. This cannot be undone.
+            </p>
+
+            <!-- ── Unregistered / Orphaned Sensors ─────────── -->
+            {% if unregistered %}
+            <div id="unregisteredSection" style="margin-top: 32px;">
+                <div class="section-subheader">
+                    <h3>Unregistered Sensors</h3>
+                    <span class="orphan-pill">⚠ ORPHANED</span>
+                </div>
+                <p style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
+                    These sensors are generating data on the live page but were never saved to the
+                    registry. Deleting them wipes their history from the dashboard.
+                </p>
+                <div class="table-wrap">
+                    <table class="sensor-table">
+                        <thead>
+                            <tr>
+                                <th>Sensor Name</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unregTableBody">
+                            {% for name in unregistered %}
+                            <tr id="urow-{{ loop.index }}">
+                                <td><strong>{{ name }}</strong></td>
+                                <td><span class="orphan-pill">Unregistered</span></td>
+                                <td>
+                                    <button class="btn-delete"
+                                        onclick="confirmDelete('{{ name }}', 'urow-{{ loop.index }}', true)">
+                                        🗑 Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+        <!-- /tab-panel manage -->
+
+    </div><!-- /container -->
+
+    <!-- ── Confirm Delete Modal ──────────────────────────── -->
+    <div class="modal-overlay" id="confirmOverlay">
+        <div class="modal-box">
+            <h3>Delete Sensor?</h3>
+            <p>
+                This will permanently remove <strong id="confirmSensorName">--</strong> from the
+                registry and delete <strong>all its historical data</strong> from the database.<br><br>
+                This action cannot be undone.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-modal-cancel" onclick="closeConfirm()">Cancel</button>
+                <button class="btn-modal-confirm" id="confirmDeleteBtn">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Toast ──────────────────────────────────────────── -->
+    <div class="toast-wrap" id="toastWrap">
+        <div class="toast-inner">
+            <span id="toastMsg">Done.</span>
+            <button class="toast-close" onclick="hideToast()">✕</button>
+        </div>
+    </div>
+
+    <script>
+        // ── Tab switching ──────────────────────────────────
+        function switchTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            document.getElementById('panel-' + name).classList.add('active');
+        }
+
+        // ── Register form ──────────────────────────────────
+        const adminForm = document.querySelector('.admin-form');
+
+        adminForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(adminForm);
+
+            try {
+                const res = await fetch('/admin', { method: 'POST', body: formData });
+                const result = await res.json();
+
+                if (result.status === 'success') {
+                    showToast('success', '✅ ' + result.message);
+                    adminForm.reset();
+                    addRowToTable(
+                        formData.get('sensor_name'),
+                        formData.get('unit'),
+                        formData.get('min_val'),
+                        formData.get('max_val')
+                    );
+                } else {
+                    showToast('error', '❌ ' + result.message);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('error', '❌ Submission error. Check console.');
+            }
+        });
+
+        // Adds a new row to the registered table live (no reload)
+        function addRowToTable(name, unit, min, max) {
+            // Replace empty state with table if needed
+            const wrap = document.getElementById('registeredTableWrap');
+            if (!document.getElementById('sensorTableBody')) {
+                wrap.innerHTML = `
+                    <table class="sensor-table">
+                        <thead><tr>
+                            <th>Sensor Name</th><th>Unit</th>
+                            <th>Sim Range</th><th>Registered At</th><th>Action</th>
+                        </tr></thead>
+                        <tbody id="sensorTableBody"></tbody>
+                    </table>`;
+            }
+
+            const now = new Date().toISOString().slice(0,19).replace('T',' ');
+            const idx = 'live-' + Date.now();
+            const tr = document.createElement('tr');
+            tr.id = 'srow-' + idx;
+            tr.innerHTML = `
+                <td><strong>${name}</strong></td>
+                <td><span class="unit-pill">${unit}</span></td>
+                <td class="muted">${min} – ${max}</td>
+                <td class="muted">${now}</td>
+                <td><button class="btn-delete"
+                    onclick="confirmDelete('${name}', 'srow-${idx}', false)">🗑 Delete</button></td>`;
+
+            document.getElementById('sensorTableBody').appendChild(tr);
+            updateCount(1);
+        }
+
+        // ── Delete flow ────────────────────────────────────
+        let pendingDelete = { name: null, rowId: null, isOrphan: false };
+
+        function confirmDelete(sensorName, rowId, isOrphan) {
+            pendingDelete = { name: sensorName, rowId, isOrphan };
+            document.getElementById('confirmSensorName').textContent = sensorName;
+            document.getElementById('confirmOverlay').classList.add('active');
+        }
+
+        function closeConfirm() {
+            document.getElementById('confirmOverlay').classList.remove('active');
+            pendingDelete = { name: null, rowId: null, isOrphan: false };
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            const { name, rowId, isOrphan } = pendingDelete;
+            if (!name) return;
+            closeConfirm();
+
+            const row = document.getElementById(rowId);
+            const btn = row?.querySelector('.btn-delete');
+            if (btn) btn.disabled = true;
+
+            try {
+                const res = await fetch(`/delete_sensor/${encodeURIComponent(name)}`, { method: 'POST' });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s, transform 0.3s';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(20px)';
+                        setTimeout(() => {
+                            row.remove();
+
+                            if (!isOrphan) {
+                                updateCount(-1);
+                                // Show empty state if no registered rows remain
+                                const tbody = document.getElementById('sensorTableBody');
+                                if (tbody && tbody.children.length === 0) {
+                                    document.getElementById('registeredTableWrap').innerHTML = `
+                                        <div class="empty-state" id="registeredEmptyState">
+                                            <div class="empty-icon">📭</div>
+                                            <p>No registered sensors yet.<br>
+                                            Use the <strong style="color:var(--accent-primary);cursor:pointer;"
+                                                onclick="switchTab('register')">Register Sensor</strong> tab to add one.</p>
+                                        </div>`;
+                                }
+                            } else {
+                                // Orphan removed — hide section if empty
+                                const uTbody = document.getElementById('unregTableBody');
+                                if (uTbody && uTbody.children.length === 0) {
+                                    document.getElementById('unregisteredSection')?.remove();
+                                }
+                            }
+                        }, 300);
+                    }
+                    showToast('success', `✅ ${name} deleted.`);
+                } else {
+                    if (btn) btn.disabled = false;
+                    showToast('error', `❌ ${data.message}`);
+                }
+            } catch (err) {
+                if (btn) btn.disabled = false;
+                showToast('error', '❌ Network error. Try again.');
+            }
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+            if (e.target === this) closeConfirm();
+        });
+
+        // Close modal with Escape
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirm(); });
+
+        // ── Count + badge helper ───────────────────────────
+        function updateCount(delta) {
+            const el = document.getElementById('totalCount');
+            const badge = document.getElementById('tabBadge');
+            const newVal = Math.max(0, parseInt(el.textContent || '0') + delta);
+            el.textContent = newVal;
+            if (badge) {
+                badge.textContent = newVal;
+                badge.style.display = newVal > 0 ? 'inline-block' : 'none';
+            }
+        }
+
+        // ── Toast helpers ──────────────────────────────────
+        let toastTimer;
+
+        function showToast(type, message) {
+            const wrap = document.getElementById('toastWrap');
+            document.getElementById('toastMsg').textContent = message;
+            wrap.className = 'toast-wrap ' + type + ' show';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(hideToast, 4500);
+        }
+
+        function hideToast() {
+            document.getElementById('toastWrap').classList.remove('show');
+            clearTimeout(toastTimer);
+        }
+
+        // ── Nav dropdown ───────────────────────────────────
+        (function() {
+            const wrap    = document.getElementById('navDropdownWrap');
+            const trigger = document.getElementById('navDropdownTrigger');
+            const panel   = document.getElementById('navDropdownPanel');
+            trigger.addEventListener('click', e => {
+                e.stopPropagation();
+                wrap.classList.toggle('open');
+                trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+            });
+            document.addEventListener('click', () => {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+            panel.addEventListener('click', e => e.stopPropagation());
+        })();
+    </script>
+</body>
+</html>

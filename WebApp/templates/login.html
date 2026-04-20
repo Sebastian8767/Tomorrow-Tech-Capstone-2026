@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | GBTAC System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styleV2.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .login-wrapper {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #1a1f2e 0%, #0a0e14 100%);
+        }
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 40px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.1);
+        }
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            margin-bottom: 20px;
+            background: #0a0e14;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            box-sizing: border-box;
+        }
+        .login-input:focus {
+            border-color: var(--accent-primary);
+            outline: none;
+            box-shadow: 0 0 10px var(--glow);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="menu-logo" style="text-align: center; margin-bottom: 30px;">GBTAC</div>
+            <h2 style="margin-bottom: 10px; font-size: 18px;">System Access</h2>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 25px;">Enter credentials to view live BMS telemetry.</p>
+            
+            <form action="/login" method="POST">
+                <label style="font-size: 12px; color: var(--text-muted);">OPERATOR ID</label>
+                <input type="text" name="username" class="login-input" placeholder="admin" required>
+                
+                <label style="font-size: 12px; color: var(--text-muted);">ACCESS KEY</label>
+                <input type="password" name="password" class="login-input" placeholder="••••••••" required>
+                
+                <button type="submit" class="btn-dashboard" style="width: 100%; border: none; cursor: pointer;">
+                    Authorize Entry
+                </button>
+                <a href="/guest" class="btn-dashboard" 
+                style="width: 100%; border: none; cursor: pointer; 
+                        background: var(--bg-secondary); 
+                        color: var(--text-secondary);
+                        border: 1px solid var(--border);
+                        margin-top: 12px; display: block; text-align: center;">
+                    👤 Continue as Guest
+                </a>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

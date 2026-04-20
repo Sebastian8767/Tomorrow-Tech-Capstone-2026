@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Data - GBTAC BMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #121820;
+            --bg-card: #1a1f2e;
+            --accent-primary: #00ff88;
+            --accent-secondary: #00d4ff;
+            --accent-warning: #ffaa00;
+            --accent-danger: #ff3366;
+            --text-primary: #ffffff;
+            --text-secondary: #8b92a8;
+            --text-muted: #5a6178;
+            --border: #2a3142;
+            --glow: rgba(0, 255, 136, 0.15);
+        }
+
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container { max-width: 1800px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+        header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan { 0% { left: -100%; } 100% { left: 100%; } }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .quick-ranges { display: flex; gap: 8px; }
+
+        .range-btn {
+            padding: 10px 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .range-btn:hover, .range-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: var(--bg-primary);
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover { border-color: var(--accent-primary); box-shadow: 0 4px 16px rgba(0, 255, 136, 0.1); }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .date-group { margin-bottom: 20px; }
+
+        .date-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .date-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .date-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--glow); }
+
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .preset-btn {
+            padding: 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .preset-btn:hover, .preset-btn.active {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .sensor-search {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .sensor-search:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--glow); }
+
+        .sensor-list {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sensor-list::-webkit-scrollbar { width: 6px; }
+        .sensor-list::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 3px; }
+        .sensor-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .sensor-list::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
+
+        .sensor-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sensor-checkbox:hover { border-color: var(--accent-primary); background: rgba(0, 255, 136, 0.05); }
+        .sensor-checkbox input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-primary); }
+        .sensor-checkbox label { flex: 1; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+
+        .btn {
+            width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: var(--bg-primary);
+            box-shadow: 0 4px 16px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0, 255, 136, 0.4); }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+        .main-content { display: flex; flex-direction: column; gap: 24px; }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s ease;
+        }
+
+        .chart-card:hover { border-color: var(--accent-primary); box-shadow: 0 4px 16px rgba(0, 255, 136, 0.1); }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .chart-title { font-size: 20px; font-weight: 600; color: var(--text-primary); }
+
+        .chart-controls { display: flex; gap: 8px; }
+
+        .chart-btn {
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chart-btn:hover, .chart-btn.active {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .chart-container { position: relative; height: 400px; }
+
+        .data-table-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+        }
+
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .table-controls { display: flex; gap: 12px; }
+        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+
+        .data-table { width: 100%; border-collapse: collapse; }
+
+        .data-table th {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .data-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .data-table tr:hover { background: var(--bg-secondary); }
+        .data-table tr:last-child td { border-bottom: none; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover { border-color: var(--accent-primary); box-shadow: 0 4px 16px rgba(0, 255, 136, 0.1); }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+            margin-bottom: 8px;
+        }
+
+        .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .loading { display: none; text-align: center; padding: 60px; color: var(--text-muted); }
+        .loading.active { display: block; }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Nav */
+        .nav-dropdown-wrap { position: fixed; top: 20px; left: 20px; z-index: 1000; }
+
+        .nav-dropdown-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-dropdown-trigger:hover { border-color: var(--accent-primary); box-shadow: 0 0 24px var(--glow); }
+
+        .nav-dropdown-trigger .menu-icon { width: 24px; height: 24px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+        .nav-dropdown-trigger .menu-icon span { display: block; height: 2px; background: currentColor; border-radius: 1px; transition: transform 0.2s ease, opacity 0.2s ease; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(1) { width: 20px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(2) { width: 16px; margin-left: 4px; }
+        .nav-dropdown-trigger .menu-icon span:nth-child(3) { width: 20px; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(2) { opacity: 0; }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger .menu-icon span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .nav-dropdown-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            min-width: 220px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-8px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .nav-dropdown-wrap.open .nav-dropdown-panel { opacity: 1; visibility: visible; transform: translateY(0); }
+
+        .nav-dropdown-panel a {
+            display: block;
+            padding: 14px 18px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .nav-dropdown-panel a:last-child { border-bottom: none; }
+        .nav-dropdown-panel a:hover { background: var(--bg-card); color: var(--accent-primary); }
+        .nav-dropdown-panel a.active { color: var(--accent-primary); background: rgba(0, 255, 136, 0.08); }
+
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .preset-grid { grid-template-columns: 1fr; }
+            .quick-ranges { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nav -->
+    <div class="nav-dropdown-wrap" id="navDropdownWrap">
+        <button type="button" class="nav-dropdown-trigger" id="navDropdownTrigger" aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+            <div class="menu-icon"><span></span><span></span><span></span></div>
+        </button>
+        <div class="nav-dropdown-panel" id="navDropdownPanel" role="menu">
+            <a href="/csv_dashboard" role="menuitem">BMS Main Dashboard</a>
+            <a href="/home" role="menuitem">BMS Live Dashboard</a>
+            <a href="/historical" role="menuitem" class="active">Historical Data</a>
+            <a href="/sensor_browser" role="menuitem">Sensor Browser</a>
+            <a href="/admin" role="menuitem">Add Sensor</a>
+            <a href="/superuser" role="menuitem">User & Admin Settings</a>
+            <a href="/about" role="menuitem">About</a>
+            <a href="/logout" role="menuitem">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-left">
+                <h1 class="page-title">Historical Data</h1>
+            </div>
+            <div class="quick-ranges">
+                <button class="range-btn" onclick="setQuickRange('24h', this)">24H</button>
+                <button class="range-btn" onclick="setQuickRange('7d', this)">7D</button>
+                <button class="range-btn active" onclick="setQuickRange('30d', this)">30D</button>
+                <button class="range-btn" onclick="setQuickRange('90d', this)">90D</button>
+            </div>
+        </header>
+
+        <!-- Stats Summary — populated dynamically -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotalRecords">--</div>
+                <div class="stat-label">Total Records</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statSensors">--</div>
+                <div class="stat-label">Sensors Tracked</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statDateRange">--</div>
+                <div class="stat-label">Date Range</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAvgValue">--</div>
+                <div class="stat-label">Avg Value (selected)</div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Sidebar -->
+            <div class="sidebar">
+
+                <!-- Date Range -->
+                <div class="card">
+                    <h3 class="card-title">📅 Custom Date Range</h3>
+                    <div class="date-group">
+                        <label class="date-label">Start Date & Time</label>
+                        <input type="datetime-local" class="date-input" id="startDate">
+                    </div>
+                    <div class="date-group">
+                        <label class="date-label">End Date & Time</label>
+                        <input type="datetime-local" class="date-input" id="endDate">
+                    </div>
+                    <button class="btn btn-secondary" onclick="applyDateRange()">Apply Range</button>
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="card">
+                    <h3 class="card-title">⏱️ Quick Presets</h3>
+                    <div class="preset-grid">
+                        <button class="preset-btn" onclick="setPreset('today', this)">Today</button>
+                        <button class="preset-btn" onclick="setPreset('yesterday', this)">Yesterday</button>
+                        <button class="preset-btn" onclick="setPreset('week', this)">This Week</button>
+                        <button class="preset-btn" onclick="setPreset('month', this)">This Month</button>
+                        <button class="preset-btn" onclick="setPreset('lastWeek', this)">Last Week</button>
+                        <button class="preset-btn active" onclick="setPreset('lastMonth', this)">Last Month</button>
+                    </div>
+                </div>
+
+                <!-- Sensor Selection — dynamically loaded from DB -->
+                <div class="card">
+                    <h3 class="card-title">🎯 Select Sensors</h3>
+                    <input type="text" class="sensor-search" placeholder="Search sensors..." oninput="filterSensors(this.value)">
+                    <div class="sensor-list" id="sensorList">
+                        <div class="empty-state">Loading sensors...</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="selectAllSensors()" style="margin-top: 12px;">Select All</button>
+                </div>
+
+                <!-- Export -->
+                <div class="card">
+                    <h3 class="card-title">💾 Export</h3>
+                    <button class="btn btn-primary" onclick="exportData()">📥 Export CSV</button>
+                </div>
+
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+
+                <!-- Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h2 class="chart-title">Historical Trends</h2>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" onclick="setChartType('line', this)">Line</button>
+                            <button class="chart-btn" onclick="setChartType('bar', this)">Bar</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="historicalChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="data-table-card">
+                    <div class="table-header">
+                        <h2 class="chart-title">Data Records</h2>
+                        <div class="table-controls">
+                            <button class="chart-btn" onclick="downloadTable()">📥 Download CSV</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr id="tableHead">
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 40px;">Apply a date range or select sensors to load data.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loadingState">
+            <div class="loading-spinner"></div>
+            <p>Loading historical data...</p>
+        </div>
+    </div>
+
+    <script>
+        // ── State ──────────────────────────────────────────────
+        let currentChart  = null;
+        let currentData   = [];   // raw rows from /api/historical
+        let currentType   = 'line';
+
+        // Colour pool for multiple sensor lines
+        const COLORS = [
+            '#ff3366', '#00ff88', '#00d4ff', '#ffaa00',
+            '#ff6b35', '#a855f7', '#ec4899', '#14b8a6'
+        ];
+
+        // ── Nav dropdown ───────────────────────────────────────
+        (function() {
+            var wrap    = document.getElementById('navDropdownWrap');
+            var trigger = document.getElementById('navDropdownTrigger');
+            var panel   = document.getElementById('navDropdownPanel');
+            if (!wrap) return;
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                wrap.classList.toggle('open');
+                trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+            });
+            document.addEventListener('click', function() {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+            panel.addEventListener('click', function(e) { e.stopPropagation(); });
+        })();
+
+        // ── Load sensor list from DB on page load ──────────────
+        async function loadSensorList() {
+            try {
+                const res     = await fetch('/api/sensor_names');
+                const sensors = await res.json();
+
+                const list = document.getElementById('sensorList');
+                if (!sensors.length) {
+                    list.innerHTML = '<div class="empty-state">No sensors found in database.</div>';
+                    return;
+                }
+
+                // Default check first two sensors (Consumption + Generation)
+                list.innerHTML = sensors.map((name, i) => `
+                    <div class="sensor-checkbox">
+                        <input type="checkbox" id="s_${i}" value="${name}">
+                        <label for="s_${i}">${name.replace(/_POLL/g,'').replace(/_/g,' ')}</label>
+                    </div>
+                `).join('');
+
+            } catch (e) {
+                document.getElementById('sensorList').innerHTML =
+                    '<div class="empty-state">Could not load sensors. Is bms_server.py running?</div>';
+            }
+        }
+
+        // ── Get selected sensors ───────────────────────────────
+        function getSelectedSensors() {
+            return Array.from(document.querySelectorAll('#sensorList input:checked'))
+                        .map(cb => cb.value);
+        }
+
+        function selectAllSensors() {
+            document.querySelectorAll('#sensorList input[type="checkbox"]')
+                    .forEach(cb => cb.checked = true);
+        }
+
+        function filterSensors(term) {
+            document.querySelectorAll('#sensorList .sensor-checkbox').forEach(el => {
+                const label = el.querySelector('label').textContent.toLowerCase();
+                el.style.display = label.includes(term.toLowerCase()) ? 'flex' : 'none';
+            });
+        }
+
+        // ── Date helpers ───────────────────────────────────────
+        function formatDT(date) {
+            // Returns "YYYY-MM-DD HH:MM:SS" for the API
+            return date.toISOString().replace('T', ' ').slice(0, 19);
+        }
+
+        function formatInput(date) {
+            // Returns "YYYY-MM-DDTHH:MM" for datetime-local input
+            return date.toISOString().slice(0, 16);
+        }
+
+        function setPreset(preset, btn) {
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+
+            const now   = new Date();
+            let start   = new Date();
+            let end     = new Date();
+
+            switch (preset) {
+                case 'today':
+                    start.setHours(0, 0, 0, 0);
+                    break;
+                case 'yesterday':
+                    start.setDate(now.getDate() - 1); start.setHours(0, 0, 0, 0);
+                    end.setDate(now.getDate() - 1);   end.setHours(23, 59, 59, 0);
+                    break;
+                case 'week':
+                    start.setDate(now.getDate() - now.getDay()); start.setHours(0, 0, 0, 0);
+                    break;
+                case 'month':
+                    start.setDate(1); start.setHours(0, 0, 0, 0);
+                    break;
+                case 'lastWeek':
+                    start.setDate(now.getDate() - now.getDay() - 7); start.setHours(0, 0, 0, 0);
+                    end.setDate(now.getDate() - now.getDay() - 1);   end.setHours(23, 59, 59, 0);
+                    break;
+                case 'lastMonth':
+                    start.setMonth(now.getMonth() - 1); start.setDate(1); start.setHours(0, 0, 0, 0);
+                    end.setMonth(now.getMonth());        end.setDate(0);   end.setHours(23, 59, 59, 0);
+                    break;
+            }
+
+            document.getElementById('startDate').value = formatInput(start);
+            document.getElementById('endDate').value   = formatInput(end);
+            fetchAndRender();
+        }
+
+        function setQuickRange(range, btn) {
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+
+            const now   = new Date();
+            let start   = new Date();
+
+            switch (range) {
+                case '24h': start.setHours(now.getHours() - 24); break;
+                case '7d':  start.setDate(now.getDate() - 7);    break;
+                case '30d': start.setDate(now.getDate() - 30);   break;
+                case '90d': start.setDate(now.getDate() - 90);   break;
+            }
+
+            document.getElementById('startDate').value = formatInput(start);
+            document.getElementById('endDate').value   = formatInput(now);
+            fetchAndRender();
+        }
+
+        function applyDateRange() {
+            fetchAndRender();
+        }
+
+        // ── Core fetch + render ────────────────────────────────
+        async function fetchAndRender() {
+            const start   = document.getElementById('startDate').value;
+            const end     = document.getElementById('endDate').value;
+            const sensors = getSelectedSensors();
+
+            if (!sensors.length) return;
+
+            showLoading();
+
+            try {
+                // Convert datetime-local format to API format
+                const startStr = start.replace('T', ' ') + ':00';
+                const endStr   = end.replace('T', ' ')   + ':59';
+
+                const params = new URLSearchParams({
+                    start:   startStr,
+                    end:     endStr,
+                    sensors: sensors.join(',')
+                });
+
+                const res  = await fetch(`/api/historical?${params}`);
+                const rows = await res.json();
+
+                currentData = rows;
+                renderChart(rows, sensors);
+                renderTable(rows, sensors);
+                updateStats(rows, sensors, start, end);
+
+            } catch (e) {
+                console.error('Fetch error:', e);
+                alert('Failed to load data. Check that bms_server.py is running.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ── Chart rendering ────────────────────────────────────
+        function renderChart(rows, sensors) {
+            // Group rows by sensor
+            const bySensor = {};
+            sensors.forEach(s => bySensor[s] = []);
+            rows.forEach(r => {
+                if (bySensor[r.sensor_name] !== undefined) {
+                    bySensor[r.sensor_name].push({ x: r.timestamp, y: r.value });
+                }
+            });
+
+            // Use timestamps from the first sensor as labels
+            const firstSensor = sensors[0];
+            const labels = (bySensor[firstSensor] || []).map(p => p.x.split(' ')[1]);
+
+            const datasets = sensors.map((name, i) => ({
+                label:           name.replace(/_POLL/g,'').replace(/_/g,' '),
+                data:            (bySensor[name] || []).map(p => p.y),
+                borderColor:     COLORS[i % COLORS.length],
+                backgroundColor: COLORS[i % COLORS.length] + '1a',
+                borderWidth:     2,
+                tension:         0.3,
+                fill:            currentType === 'area',
+                pointRadius:     rows.length > 200 ? 0 : 3,
+                pointHoverRadius: 6
+            }));
+
+            const ctx = document.getElementById('historicalChart').getContext('2d');
+
+            if (currentChart) {
+                currentChart.data.labels   = labels;
+                currentChart.data.datasets = datasets;
+                currentChart.config.type   = currentType === 'area' ? 'line' : currentType;
+                currentChart.update('none');
+            } else {
+                currentChart = new Chart(ctx, {
+                    type: currentType === 'area' ? 'line' : currentType,
+                    data: { labels, datasets },
+                    options: {
+                        responsive:          true,
+                        maintainAspectRatio: false,
+                        animation:           false,
+                        interaction:         { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: '#8b92a8', font: { family: 'JetBrains Mono', size: 12 }, usePointStyle: true, padding: 20 }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1a1f2e',
+                                titleColor:      '#ffffff',
+                                bodyColor:       '#8b92a8',
+                                borderColor:     '#2a3142',
+                                borderWidth:     1,
+                                padding:         12
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid:  { color: '#2a3142' },
+                                ticks: { color: '#5a6178', font: { family: 'JetBrains Mono', size: 11 }, maxTicksLimit: 12 }
+                            },
+                            y: {
+                                grid:  { color: '#2a3142' },
+                                ticks: {
+                                    color: '#5a6178',
+                                    font:  { family: 'JetBrains Mono', size: 11 },
+                                    callback: v => v.toFixed(1)
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ── Table rendering ────────────────────────────────────
+        function renderTable(rows, sensors) {
+            // Pivot: group by timestamp
+            const byTime = {};
+            rows.forEach(r => {
+                if (!byTime[r.timestamp]) byTime[r.timestamp] = {};
+                byTime[r.timestamp][r.sensor_name] = r.value;
+            });
+
+            // Build headers
+            const head = document.getElementById('tableHead');
+            head.innerHTML = '<th>Timestamp</th>' +
+                sensors.map(s => `<th>${s.replace(/_POLL/g,'').replace(/_/g,' ')}</th>`).join('');
+
+            // Build rows (most recent first)
+            const times = Object.keys(byTime).sort().reverse().slice(0, 100);
+            const body  = document.getElementById('tableBody');
+
+            if (!times.length) {
+                body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:40px;">No data found for selected range.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = times.map(ts => `
+                <tr>
+                    <td>${ts}</td>
+                    ${sensors.map(s => {
+                        const v = byTime[ts][s];
+                        return `<td>${v !== undefined ? v.toFixed(2) : '--'}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        // ── Stats update ───────────────────────────────────────
+        function updateStats(rows, sensors, start, end) {
+            document.getElementById('statTotalRecords').textContent = rows.length.toLocaleString();
+            document.getElementById('statSensors').textContent      = sensors.length;
+
+            // Date range label
+            if (start && end) {
+                const days = Math.round((new Date(end) - new Date(start)) / 86400000);
+                document.getElementById('statDateRange').textContent = days <= 1 ? 'Today' : `${days} Days`;
+            }
+
+            // Average value across all selected sensors
+            if (rows.length) {
+                const avg = rows.reduce((sum, r) => sum + r.value, 0) / rows.length;
+                document.getElementById('statAvgValue').textContent = avg.toFixed(1);
+            }
+        }
+
+        // ── Chart type toggle ──────────────────────────────────
+        function setChartType(type, btn) {
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            currentType = type;
+            if (currentData.length) renderChart(currentData, getSelectedSensors());
+        }
+
+        // ── Export CSV from current data ───────────────────────
+        function exportData() {
+            if (!currentData.length) { alert('No data loaded. Apply a date range first.'); return; }
+
+            const sensors = getSelectedSensors();
+
+            // Pivot by timestamp
+            const byTime = {};
+            currentData.forEach(r => {
+                if (!byTime[r.timestamp]) byTime[r.timestamp] = {};
+                byTime[r.timestamp][r.sensor_name] = r.value;
+            });
+
+            const headers = ['timestamp', ...sensors];
+            let csv = headers.join(',') + '\n';
+
+            Object.keys(byTime).sort().forEach(ts => {
+                const row = [ts, ...sensors.map(s => byTime[ts][s] !== undefined ? byTime[ts][s] : '')];
+                csv += row.join(',') + '\n';
+            });
+
+            const now  = new Date();
+            const ts   = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = `GBTAC_Historical_${ts}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ── Download table as CSV ──────────────────────────────
+        function downloadTable() {
+            exportData();
+        }
+
+        // ── Loading helpers ────────────────────────────────────
+        function showLoading() { document.getElementById('loadingState').classList.add('active'); }
+        function hideLoading()  { document.getElementById('loadingState').classList.remove('active'); }
+
+        // ── Init ───────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSensorList();
+            // Default to last 2h days
+            setPreset('24h', null);
+        });
+    </script>
+</body>
+</html>

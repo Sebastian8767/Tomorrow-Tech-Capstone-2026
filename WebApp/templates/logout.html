@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logged Out | GBTAC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styleV2.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .logout-container {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .logout-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 60px;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            max-width: 400px;
+        }
+        .success-circle {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid var(--accent-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            font-size: 32px;
+            color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="logout-container">
+        <div class="logout-box">
+            <div class="success-circle">🔒</div>
+            <h1 style="margin-bottom: 10px;">Logged Out</h1>
+            <p style="color: var(--text-muted); margin-bottom: 30px;">
+                Your session has been securely ended.
+            </p>
+            <a href="/" class="btn-dashboard" style="text-decoration: none; display: block;">
+                Return to Login
+            </a>
+        </div>
+    </div>
+</body>
+</html>

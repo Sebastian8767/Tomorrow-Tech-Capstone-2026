@@ -1,0 +1,376 @@
+<!DOCTYPE html>  
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMS Dashboard | GBTAC</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">GBTAC</div>
+                <div class="logo-text">
+                    <h1>Building Management System</h1>
+                    <p>Real-time Monitoring Dashboard</p>
+                    <a href="{{ url_for('static', filename='csv_viewer.html') }}" class="btn-dashboard">
+                            Upload CSV File
+                    </a>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span class="status-text">SYSTEM ONLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid">
+            {% set latest = {} %}
+            {% for row in data %}
+                {% if row[2] not in latest %}{% set _ = latest.update({row[2]: row[3]}) %}{% endif %}
+            {% endfor %}
+
+            <div class="metric-card consumption">
+                <div class="metric-header"><span class="metric-title">Total Consumption</span><span class="icon">⚡</span></div>
+                <div class="metric-value" id="val-GBT_Total_Consumption">-- <span class="metric-unit">kW</span></div>
+
+            </div>
+            <div class="metric-card generation">
+                <div class="metric-header"><span class="metric-title">Total Generation</span><span class="icon">🔋</span></div>
+                <div class="metric-value" id="val-GBT_Total_Generation">-- <span class="metric-unit">kW</span></div>
+            </div>
+
+            <div class="metric-card heating">
+                <div class="metric-header"><span class="metric-title">Space Heating</span><span class="icon">🔥</span></div>
+                <div class="metric-value" id="val-GBT_Space_heating">-- <span class="metric-unit">kW</span></div>
+            </div>
+
+
+            <div class="metric-card lighting">
+                <div class="metric-header"><span class="metric-title">Lighting Load</span><span class="icon">💡</span></div>
+                <div class="metric-value" id="val-GBT_Lighting_consumption-TL">-- <span class="metric-unit">kW</span></div>
+            </div>
+        </div>
+
+            <div class="summary-grid">
+                <div class="category-card">
+                    <div class="card-column">
+                        <h3><i class="icon">⚡</i> Energy Use</h3>
+                        <div class="stat-row"><span>Lighting:</span> <strong id="sum-GBT_Lighting_consumption-TL">{{ "%.1f"|format(latest.get('GBT Lighting consumption-TL', 0)) }}</strong> kW</div>
+                    </div>
+                    <div class="card-column border-left">
+                        <h3><i class="icon">🔋</i> Generation</h3>
+                        <div class="stat-row"><span>Solar:</span> <strong id="sum-PV-RooftopSolar_Total">{{ "%.1f"|format(latest.get('PV-RooftopSolar_Total', 0)) }}</strong> kW</div>
+                    </div>
+                </div>
+                <div class="category-card">
+                    <div class="card-column">
+                        <h3><i class="icon">🌡️</i> Temperatures</h3>
+                        <div class="stat-row"><span>Supply:</span> <strong id="sum-SLAB_Supply_Water_Temp_POLL">--</strong> °C</div>
+                    </div>
+                    <div class="card-column border-left">
+                        <h3><i class="icon">🔥</i> HVAC Fan</h3>
+                        <div class="stat-row"><span>Supply Fan:</span> <strong id="sum-HRV1_SupFan_Amps_POLL">--</strong> A</div>
+                    </div>
+                </div>
+            <div class="category-card">
+                <div class="card-column">
+                    <h3><i class="icon">💧</i> Water Levels</h3>
+                    <div class="stat-row"><span>Rain Tank:</span> <strong id="sum-Rain_Water_Level_POLL">--</strong> %</div>
+                </div>
+                <div class="card-column border-left">
+                    <h3><i class="icon">♨️</i> Hot Water</h3>
+                    <div class="stat-row"><span>Tank Temp:</span> <strong id="sum-HWS_Post_DHW_Tank_Temp_POLL">--</strong> °C</div>
+                </div>
+            </div>
+
+            <div class="main-layout">
+                <div class="chart-section">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Energy Trends</h3>
+                            <div class="chart-controls">
+                                <button onclick="exportToCSV()" class="time-btn" style="background: var(--accent-secondary); color: var(--bg-primary);">Export Full CSV</button>
+                                <!-- <button class="time-btn" onclick="location.href='/?limit=10'">Last 10</button>
+                                <button class="time-btn" onclick="location.href='/?limit=20'">Last 20</button>
+                                <button class="time-btn" onclick="location.href='/?limit=50'">Last 50</button> -->
+                            </div>
+                        </div>
+                        <div class="chart-container"><canvas id="energyChart"></canvas></div>
+
+                    </div><div class="chart-card search-history-card" style="margin-top: 20px;">
+                        <div class="search-section">
+                            <h3 class="chart-title" style="margin-bottom: 15px;">Sensor History Lookup</h3>
+                            <div class="search-container">
+                                <input type="text" id="sensorSearchInput" class="search-input" placeholder="Enter Sensor ID">
+                                <span class="search-icon" onclick="lookupSensor()" style="cursor: pointer;">🔍</span>
+                            </div>
+                        </div>
+
+                        <div class="search-results-area" style="display: flex; gap: 30px; align-items: center; margin-top: 20px;">
+                            <div id="searchMetricDisplay" style="min-width: 180px;">
+                                <div class="metric-title" id="searchedSensorName">No Sensor Selected</div>
+                                <div class="metric-value" id="searchedSensorValue" style="font-size: 32px; font-family: 'JetBrains Mono', monospace;">--</div>
+                            </div>
+                            <div class="chart-container" style="flex-grow: 1; height: 180px;">
+                                <canvas id="sensorHistoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <aside class="sensor-sidebar">
+                    <h3 class="chart-title">Active Sensors</h3>
+                    <div class="sensor-list" id="live-sensor-list">
+                        {% set seen = [] %}
+                        {% for row in data %}
+                            {% if 'Sensor' in row[2] and row[2] not in seen %}
+                                {% set _ = seen.append(row[2]) %}
+                                <div class="sensor-item" data-sensor-id="{{ row[2] }}" onclick="document.getElementById('sensorSearchInput').value='{{ row[2] }}'; lookupSensor();" style="cursor: pointer;">
+                                    <div class="sensor-info">
+                                        <div class="sensor-name">Room A-{{ row[2][-1] }}</div>
+                                        <div class="sensor-id">{{ row[2] }} • Online</div>
+                                    </div>
+                                    <div class="sensor-value">{{ "%.1f"|format(row[3]) }}°C</div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </aside>
+            </div>
+    </div>
+
+    <script>
+    // 1. FIXED INITIAL DATA STRINGS
+        const CHART_LABELS = [{% for row in data|reverse %}"{{ row[1].split(' ')[1] }}",{% endfor %}];
+        const CONSUMPTION_DATA = [{% for row in data|reverse if row[2] == 'GBT Total Consumption' %}{{ row[3] }},{% endfor %}];
+        const GENERATION_DATA = [{% for row in data|reverse if row[2] == 'GBT Total Generation' %}{{ row[3] }},{% endfor %}];
+        
+        let historyChart = null; // Initialize this globally
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/api/data?limit=100'); 
+                const newData = await response.json();
+
+                if (!newData || newData.length === 0) return;
+
+                newData.forEach(item => {
+                    // DEBUG: See the exact name to fix Space Heating
+                    if (item.name.includes('heating')) console.log("Heating Name in DB:", item.name);
+
+                    const safeName = item.name.replace(/\s+/g, '_');
+
+                    // 1. Update Cards (Wrapped in safety check)
+                    const bigCard = document.getElementById(`val-${safeName}`);
+                    if (bigCard) {
+                        bigCard.innerHTML = `${item.value.toFixed(1)} <span class="metric-unit">kW</span>`;
+                    }
+
+                    const summaryElement = document.getElementById(`sum-${safeName}`);
+                    if (summaryElement) {
+                        summaryElement.innerText = item.value.toFixed(1);
+                    }
+
+                    // 2. Sidebar Logic (With safety check for the list element)
+                    if (item.name.includes('Sensor')) {
+                        const list = document.getElementById('live-sensor-list');
+                        if (list) { // CRITICAL SAFETY CHECK
+                            let sensorItem = document.querySelector(`[data-sensor-id="${item.name}"]`);
+                            
+                            if (!sensorItem) {
+                                const roomNum = item.name.split('_')[1] || '??';
+                                list.insertAdjacentHTML('beforeend', `
+                                    <div class="sensor-item" data-sensor-id="${item.name}" onclick="document.getElementById('sensorSearchInput').value='${item.name}'; lookupSensor();">
+                                        <div class="sensor-info">
+                                            <div class="sensor-name">Room A-${roomNum}</div>
+                                            <div class="sensor-id">${item.name} • Online</div>
+                                        </div>
+                                        <div class="sensor-value">${item.value.toFixed(1)}°C</div>
+                                    </div>
+                                `);
+                            } else {
+                                sensorItem.querySelector('.sensor-value').innerText = `${item.value.toFixed(1)}°C`;
+                            }
+                        }
+                    }
+                });
+
+                // 3. Update Chart
+                if (window.energyChart) {
+                    const consumption = newData.filter(d => d.name === 'GBT Total Consumption').reverse();
+                    const generation = newData.filter(d => d.name === 'GBT Total Generation').reverse();
+                    
+                    if (consumption.length > 0) {
+                        window.energyChart.data.labels = consumption.map(d => d.timestamp.split(' ')[1]);
+                        window.energyChart.data.datasets[0].data = consumption.map(d => d.value);
+                        window.energyChart.data.datasets[1].data = generation.map(d => d.value);
+                        window.energyChart.update('none'); 
+                    }
+                }
+
+            } catch (error) {
+                console.error("Update failed:", error);
+            }
+        }
+        // Run the update function every 1 second
+        setInterval(updateDashboard, 1000);
+        
+        async function lookupSensor() {
+            const sensorId = document.getElementById('sensorSearchInput').value;
+            if (!sensorId) return;
+
+            try {
+                // Fetch data specifically for this sensor
+                const response = await fetch(`/api/data?limit=50`);
+                const allData = await response.json();
+                
+                // Filter for only the sensor the user typed in
+                const sensorHistory = allData.filter(d => d.name === sensorId).reverse();
+
+                if (sensorHistory.length > 0) {
+                    const latest = sensorHistory[sensorHistory.length - 1];
+                    const unit = sensorId.includes('Sensor') ? '°C' : 'kW';
+                    document.getElementById('searchedSensorName').innerText = sensorId;
+                    document.getElementById('searchedSensorValue').innerHTML = 
+                `${latest.value.toFixed(1)} <span class="metric-unit">${unit}</span>`;
+
+                    // Update or Create the small history chart
+                    const ctx = document.getElementById('sensorHistoryChart').getContext('2d');
+                    const labels = sensorHistory.map(d => d.timestamp.split(' ')[1]);
+                    const values = sensorHistory.map(d => d.value);
+
+                    if (historyChart) {
+                        historyChart.data.labels = labels;
+                        historyChart.data.datasets[0].data = values;
+                        historyChart.update();
+                    } else {
+                        historyChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Value History',
+                                    data: values,
+                                    borderColor: '#00d4ff',
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    tension: 0.3
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                        });
+                    }
+                } else {
+                    alert("Sensor ID not found in recent data.");
+                }
+            } catch (err) {
+                console.error("Search failed:", err);
+            }
+        }
+        document.getElementById('sensorSearchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                lookupSensor();
+            }
+        });
+
+        async function exportToCSV() {
+            try {
+                const response = await fetch('/api/data?limit=500'); 
+                const allData = await response.json();
+                
+                if (!allData || allData.length === 0) {
+                    alert("No data found.");
+                    return;
+                }
+
+                // 1. Headers: 4 Main Metrics (Exact GBT Names) + 10 Sensors
+                const headers = [
+                            'ts', 
+                            'GBT Total Consumption', 'GBT Space heating', 'GBT Lighting consumption-TL',
+                            'GBT Total Generation', 'PV-RooftopSolar_Total', 'SaitSolarLab_20000_TL151',
+                            'SLAB_Supply_Water_Temp_POLL', 'HRV1_Supply_Temp_POLL', 'HWS_Outside_Temp_POLL', 
+                            'SLAB_Zn1_Basement_Avg_Space_Temp_AV_POLL', 'HRV1_SupFan_Amps_POLL', 'HRV2_SupFan_Amps_POLL',
+                            'SLAB_P4A_Amps_POLL', 'HWS_Post_DHW_Tank_Temp_POLL', 'HWS_P1A_Amps_POLL', 'DHW_P5_Amps_POLL',
+                            'Rain_Water_Level_POLL', 'Rain_Water_Tank_Min_Level_AV_POLL', 'FT-City_Water-CHP3'
+                        ];
+                                
+                // Add the 10 room sensors to the headers list
+                for (let i = 1; i <= 10; i++) {
+                    headers.push(`Sensor_00${i}`);
+                }
+
+                const rowsByTime = {};
+
+                allData.forEach(item => {
+                    // 2. TIME NORMALIZATION (5-second grouping)
+                    
+                    const date = new Date(item.timestamp);
+                    const seconds = date.getSeconds();
+                    date.setSeconds(Math.floor(seconds / 5) * 5); 
+                    date.setMilliseconds(0);
+                    const timeKey = date.toISOString().replace('T', ' ').split('.')[0];
+
+                    if (!rowsByTime[timeKey]) rowsByTime[timeKey] = { ts: timeKey };
+                    
+                    // 3. MAPPING LOGIC
+                    // Main Metrics (Mapping simple db names to long GBT names)
+                    const name = item.name;
+
+                    if (headers.includes(name)) {
+                        rowsByTime[timeKey][name] = item.value;
+                    } 
+                    // Handle the 5-second grouping for sensors
+                    else if (name.startsWith('Sensor_')) {
+                        rowsByTime[timeKey][name] = item.value;
+                    }
+                    // FALLBACK: If  database is still sending short names:
+                    else if (name === 'Total_Consumption') {
+                        rowsByTime[timeKey]['GBT Total Consumption'] = item.value;
+                    } else if (name === 'Space_Heating') {
+                        rowsByTime[timeKey]['GBT Space heating'] = item.value;
+                    }
+                });
+
+                // Generate CSV Content
+                let csvContent = headers.join(',') + '\n';
+                const sortedTimes = Object.keys(rowsByTime).sort();
+                
+                sortedTimes.forEach(time => {
+                    const dataPoint = rowsByTime[time];
+                    const row = headers.map(h => dataPoint[h] !== undefined ? dataPoint[h] : '');
+                    csvContent += row.join(',') + '\n';
+                });
+
+                // Download Trigger
+                const now = new Date();
+                const timestamp = now.getFullYear() + "-" + 
+                                (now.getMonth() + 1).toString().padStart(2, '0') + "-" + 
+                                now.getDate().toString().padStart(2, '0') + "_" + 
+                                now.getHours().toString().padStart(2, '0') + "-" + 
+                                now.getMinutes().toString().padStart(2, '0');
+
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Dynamic filename
+                a.download = `BMS_Full_Report_${timestamp}.csv`;
+
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (err) {
+                console.error("Export Error:", err);
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

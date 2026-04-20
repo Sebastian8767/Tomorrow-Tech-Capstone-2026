@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMS Admin | GBTAC</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styleV2.css') }}">
+</head>
+<body>
+        <div class="main-content">
+            <div class="nav-dropdown-wrap" id="navDropdownWrap">
+                <button type="button" class="nav-dropdown-trigger" id="navDropdownTrigger" aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+                    <div class="menu-icon">
+                        <span></span><span></span><span></span>
+                    </div>
+                </button>
+                <div class="nav-dropdown-panel" id="navDropdownPanel" role="menu">
+                    <a href="/csv_dashboard" role="menuitem">BMS Main Dashboard</a>
+                    <a href="/home" role="menuitem" class="active">BMS Live Dashboard</a>
+                    <a href="/admin" role="menuitem">Add Sensor</a>
+                    <a href="/user_admin_settings" role="menuitem">User Admin Settings</a>
+                    <a href="/sensor_browser" role="menuitem">Sensor Browser</a>
+                    <a href="/historical_data" role="menuitem">Historical Data</a>
+                    <a href="/logout" role="menuitem">Logout</a>
+                </div>
+
+                </div>
+            </div>
+            <div class="chart-card" style="animation: slideDown 0.4s ease-out;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                    <h2 class="metric-title" style="margin: 0; font-size: 24px;">System Architects</h2>
+                </div>
+
+                <div class="team-grid" style="display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; padding: 40px 0;">
+                    <div class="team-member-card">
+                        <div class="profile-frame">
+                            <img src="{{ url_for('static', filename='Sebastian.png') }}" alt="Developer">
+                        </div>
+                        <div class="member-info">
+                            <h3>Sebastian</h3>
+                            <p>Team Lead <br> </p>
+                            <a href="https://www.linkedin.com/in/sebastian-simpson123/" target="_blank" class="linkedin-badge">
+                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="16"> LinkedIn
+                            </a>
+                        </div>
+                        <div class="profile-frame">
+                            <img src="{{ url_for('static', filename='Josh.png') }}" alt="Developer">
+                        </div>
+                        <div class="member-info">
+                            <h3>Josh</h3>
+                            <p>Lead Developer <br>Backend</p>
+                            <a href="https://www.linkedin.com/in/joshua-ngo/" target="_blank" class="linkedin-badge">
+                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="16"> LinkedIn
+                            </a>
+                        </div>
+                        <div class="profile-frame">
+                            <img src="{{ url_for('static', filename='Ronn.png') }}" alt="Developer">
+                        </div>
+                        <div class="member-info">
+                            <h3>Ronn Rick</h3>
+                            <p>BMS Structure <br> Developer</p>
+                            <a href="https://www.linkedin.com/in/ronn-rick-manuel-6a71b4198/" target="_blank" class="linkedin-badge">
+                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="16"> LinkedIn
+                            </a>
+                        </div>
+                        <div class="profile-frame">
+                            <img src="{{ url_for('static', filename='Cayden.png') }}" alt="Developer">
+                        </div>
+                        <div class="member-info">
+                            <h3>Cayden</h3>
+                            <p>Dashboard UI <br> Developer</p>
+                            <a href="https://www.linkedin.com/in/cayden-quach-7b68232a9/" target="_blank" class="linkedin-badge">
+                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="16"> LinkedIn
+                            </a>
+                        </div>
+                        <div class="profile-frame">
+                            <img src="{{ url_for('static', filename='Keenan.png') }}" alt="Developer">
+                        </div>
+                        <div class="member-info">
+                            <h3>Keenan</h3>
+                            <p>Azure Database <br> Developer</p>
+                            <a href="https://www.linkedin.com/in/keenan-bridges-964a6b351/" target="_blank" class="linkedin-badge">
+                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="16"> LinkedIn
+                            </a>
+                        </div>
+                        <div class="profile-frame">
+                            <img src="{{ url_for('static', filename='Lucas.png') }}" alt="Developer">
+                        </div>
+                        <div class="member-info">
+                            <h3>Lucas</h3>
+                            <p>Security Systems <br> Developer</p>
+                            <a href="https://linkedin.com/in/your-profile" target="_blank" class="linkedin-badge">
+                                <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="16"> LinkedIn
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            (function() {
+                var wrap = document.getElementById('navDropdownWrap');
+                var trigger = document.getElementById('navDropdownTrigger');
+                var panel = document.getElementById('navDropdownPanel');
+                if (wrap && trigger && panel) {
+                    trigger.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        wrap.classList.toggle('open');
+                        trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+                    });
+                    document.addEventListener('click', function() {
+                        wrap.classList.remove('open');
+                        trigger.setAttribute('aria-expanded', 'false');
+                    });
+                    panel.addEventListener('click', function(e) { e.stopPropagation(); });
+                }
+            })();
+        </script>
+</body>
+</html>

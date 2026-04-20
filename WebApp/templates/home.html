@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMS Live Dashboard | GBTAC</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styleV2.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+    <!-- ── Floating Nav ─────────────────────────────────── -->
+    <div class="nav-dropdown-wrap" id="navDropdownWrap">
+        <button type="button" class="nav-dropdown-trigger" id="navDropdownTrigger"
+            aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+            <div class="menu-icon"><span></span><span></span><span></span></div>
+        </button>
+        <div class="nav-dropdown-panel" id="navDropdownPanel" role="menu">
+            <a href="/csv_dashboard" role="menuitem">BMS Main Dashboard</a>
+            <a href="/home" role="menuitem" class="active">BMS Live Dashboard</a>
+            <a href="/admin" role="menuitem">Add Sensor</a>
+            <a href="/user_admin_settings" role="menuitem">User Admin Settings</a>
+            <a href="/sensor_browser" role="menuitem">Sensor Browser</a>
+            <a href="/historical_data" role="menuitem">Historical Data</a>
+            <a href="/about" role="menuitem">About</a>
+            <a href="/logout" role="menuitem">Logout</a>
+            <a href="/test_admin" role="menuitem">Test Admin Page</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <main class="main-content">
+
+            <!-- ── Header ─────────────────────────────────── -->
+            <header>
+                <div class="logo">
+                    <div class="logo-icon">GBTAC</div>
+                    <div class="logo-text">
+                        <h1>Building Management System</h1>
+                        <p>Floor 1: Real-time Monitoring</p>
+                    </div>
+                </div>
+                <div class="header-status">
+                    <div class="status-dot"></div>
+                    <span class="status-text">System Online</span>
+                    <button id="pauseBtn" onclick="togglePause()"
+                        style="margin-left: 16px; padding: 6px 16px; background: transparent;
+                               border: 1px solid var(--accent-warning); color: var(--accent-warning);
+                               border-radius: 6px; font-family: 'Sora', sans-serif; font-size: 13px;
+                               cursor: pointer; transition: all 0.2s ease;">
+                        Pause
+                    </button>
+                
+                    {% if session.get('role') == 'guest' %}
+                        <div style="padding: 10px 18px; font-size: 12px; 
+                                    color: var(--text-muted); font-family: 'JetBrains Mono', monospace;
+                                    border-bottom: 1px solid var(--border);">
+                            👤 Guest · {{ session.get('guest_id') }}
+                        </div>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- ── Build latest-value lookup map ────────────── -->
+            {% set latest = {} %}
+            {% for row in data %}
+                {% if row[2] not in latest %}
+                    {% set _ = latest.update({row[2]: row[3]}) %}
+                {% endif %}
+            {% endfor %}
+
+            <!-- ── Big 4 Metric Cards ──────────────────────── -->
+            <div class="grid">
+                <div class="metric-card consumption">
+                    <div class="metric-header">
+                        <span class="metric-title">Total Consumption</span>
+                        <span class="icon">⚡</span>
+                    </div>
+                    <div class="metric-value" id="val-GBT_Total_Consumption">
+                        -- <span class="metric-unit">kW</span>
+                    </div>
+                </div>
+
+                <div class="metric-card generation">
+                    <div class="metric-header">
+                        <span class="metric-title">Total Generation</span>
+                        <span class="icon">🔋</span>
+                    </div>
+                    <div class="metric-value" id="val-GBT_Total_Generation">
+                        -- <span class="metric-unit">kW</span>
+                    </div>
+                </div>
+
+                <div class="metric-card heating">
+                    <div class="metric-header">
+                        <span class="metric-title">Space Heating</span>
+                        <span class="icon">🔥</span>
+                    </div>
+                    <div class="metric-value" id="val-GBT_Space_heating">
+                        -- <span class="metric-unit">kW</span>
+                    </div>
+                </div>
+
+                <div class="metric-card lighting">
+                    <div class="metric-header">
+                        <span class="metric-title">Lighting Load</span>
+                        <span class="icon">💡</span>
+                    </div>
+                    <div class="metric-value" id="val-GBT_Lighting_consumption_TL">
+                        -- <span class="metric-unit">kW</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Summary Category Cards ─────────────────── -->
+            <div class="summary-grid">
+                <div class="category-card">
+                    <div class="card-column">
+                        <h3><i class="icon">⚡</i> Energy Use</h3>
+                        <div class="stat-row">
+                            <span>Lighting:</span>
+                            <strong id="sum-GBT_Lighting_consumption_TL">
+                                {{ "%.1f"|format(latest.get('GBT Lighting consumption-TL', 0)) }}
+                            </strong> kW
+                        </div>
+                    </div>
+                    <div class="card-column border-left">
+                        <h3><i class="icon">🔋</i> Generation</h3>
+                        <div class="stat-row">
+                            <span>Solar:</span>
+                            <strong id="sum-PV_RooftopSolar_Total">
+                                {{ "%.1f"|format(latest.get('PV-RooftopSolar_Total', 0)) }}
+                            </strong> kW
+                        </div>
+                    </div>
+                </div>
+
+                <div class="category-card">
+                    <div class="card-column">
+                        <h3><i class="icon">🌡️</i> Temperatures</h3>
+                        <div class="stat-row">
+                            <span>Supply:</span>
+                            <strong id="sum-SLAB_Supply_Water_Temp_POLL">--</strong> °C
+                        </div>
+                    </div>
+                    <div class="card-column border-left">
+                        <h3><i class="icon">🔥</i> HVAC Fan</h3>
+                        <div class="stat-row">
+                            <span>Supply Fan:</span>
+                            <strong id="sum-HRV1_SupFan_Amps_POLL">--</strong> A
+                        </div>
+                    </div>
+                </div>
+
+                <div class="category-card">
+                    <div class="card-column">
+                        <h3><i class="icon">💧</i> Water Levels</h3>
+                        <div class="stat-row">
+                            <span>Rain Tank:</span>
+                            <strong id="sum-Rain_Water_Level_POLL">--</strong> L
+                        </div>
+                    </div>
+                    <div class="card-column border-left">
+                        <h3><i class="icon">♨️</i> Hot Water</h3>
+                        <div class="stat-row">
+                            <span>Tank Temp:</span>
+                            <strong id="sum-HWS_Post_DHW_Tank_Temp_POLL">--</strong> °C
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Main Layout: Charts + Sidebar ──────────── -->
+            <div class="main-layout">
+
+                <!-- Charts column -->
+                <div class="chart-section">
+
+                    <!-- Energy Trends Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Energy Trends</h3>
+                            <div class="chart-controls">
+                                <button onclick="exportToCSV()" class="time-btn"
+                                    style="background: var(--accent-secondary); color: var(--bg-primary); border-color: var(--accent-secondary);">
+                                    📊 Export CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="energyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Sensor History Lookup -->
+                    <div class="chart-card search-history-card">
+                        <div class="search-section">
+                            <div class="chart-header" style="margin-bottom: 16px;">
+                                <h3 class="chart-title">Sensor History Lookup</h3>
+                            </div>
+                            <div class="search-container">
+                                <input type="text" id="sensorSearchInput" class="search-input"
+                                    placeholder="Enter Sensor ID…">
+                                <span class="search-icon" onclick="lookupSensor()"
+                                    style="cursor: pointer;">🔍</span>
+                            </div>
+                        </div>
+
+                        <div class="search-results-area"
+                            style="display: flex; gap: 30px; align-items: center; margin-top: 24px;">
+                            <div id="searchMetricDisplay" style="min-width: 180px;">
+                                <div class="metric-title" id="searchedSensorName"
+                                    style="margin-bottom: 8px;">No Sensor Selected</div>
+                                <div class="metric-value" id="searchedSensorValue"
+                                    style="font-size: 32px; color: var(--accent-primary);">--</div>
+                            </div>
+                            <div class="chart-container" style="flex-grow: 1; height: 180px;">
+                                <canvas id="sensorHistoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /chart-section -->
+
+                <!-- ── Live Sensor Sidebar ─────────────────── -->
+                <aside class="sensor-sidebar">
+                    <h3 class="chart-title" style="margin-bottom: 16px;">Live Device Status</h3>
+
+                    <div class="sidebar-filter-wrap">
+                        <input type="text" id="sidebarFilterInput"
+                            placeholder="Filter sensors…">
+                    </div>
+
+                    <div class="sensor-list" id="live-sensor-list">
+                        {% set seen = [] %}
+                        {% set summary_metrics = [
+                            'GBT Total Consumption',
+                            'GBT Total Generation',
+                            'GBT Space heating',
+                            'GBT Lighting consumption-TL'
+                        ] %}
+
+                        {% for row in data %}
+                            {% if row[2] not in seen and row[2] not in summary_metrics %}
+                                {% set _ = seen.append(row[2]) %}
+                                {% set display_name = row[2].replace('_POLL', '').replace('_', ' ') %}
+
+                                <div class="sensor-item"
+                                    data-sensor-id="{{ row[2] }}"
+                                    onclick="document.getElementById('sensorSearchInput').value='{{ row[2] }}'; lookupSensor();"
+                                    style="cursor: pointer;">
+                                    <div class="sensor-info">
+                                        <div class="sensor-name">{{ display_name }}</div>
+                                        <div class="sensor-id">
+                                            {{ row[2] }} •
+                                            <span style="color: var(--accent-primary);">Active</span>
+                                        </div>
+                                    </div>
+                                    <div class="sensor-value">
+                                        {{ "%.1f"|format(row[3]) }}
+                                        {% if 'Temp' in row[2] %}°C
+                                        {% elif 'Amps' in row[2] or 'P1A' in row[2] %}A
+                                        {% else %}kW
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </aside>
+
+            </div><!-- /main-layout -->
+
+        </main>
+    </div><!-- /container -->
+
+    <!-- ── Toast ──────────────────────────────────────────── -->
+    <div id="successToast" class="toast-container">
+        <div class="toast-content">
+            <span class="icon">✅</span>
+            <span id="toastMessage">Done.</span>
+            <button type="button" onclick="hideToast()"
+                style="background:none; border:none; color:var(--text-muted); cursor:pointer; margin-left:auto; font-size:18px; line-height:1;">✕</button>
+        </div>
+    </div>
+
+    {% if access_denied %}
+    <div id="accessDeniedModal" style="
+        position: fixed; top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(10, 14, 20, 0.85);
+        z-index: 99999;
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(6px);
+        animation: fadeIn 0.3s ease;">
+        <div style="
+            background: var(--bg-card);
+            border: 1px solid var(--accent-danger);
+            border-radius: 20px;
+            padding: 40px 48px;
+            max-width: 440px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(255, 51, 102, 0.2);
+            animation: slideUp 0.3s ease;">
+
+            <div style="font-size: 48px; margin-bottom: 16px;">⛔</div>
+
+            <h2 style="
+                font-size: 22px;
+                font-weight: 700;
+                color: var(--text-primary);
+                margin-bottom: 12px;">
+                Access Restricted
+            </h2>
+
+            <p style="
+                font-size: 14px;
+                color: var(--text-secondary);
+                line-height: 1.6;
+                margin-bottom: 28px;">
+                Only users with <span style="color: var(--accent-primary); font-weight: 600;">Admin privileges</span> have access to this page.
+                Please contact your administrator if you need access.
+            </p>
+
+            <button onclick="document.getElementById('accessDeniedModal').style.display='none'"
+                style="
+                    padding: 12px 32px;
+                    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+                    border: none;
+                    border-radius: 10px;
+                    color: var(--bg-primary);
+                    font-family: 'Sora', sans-serif;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 16px rgba(0, 255, 136, 0.3);
+                    transition: all 0.2s ease;">
+                Got it
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Also close on background click
+        document.getElementById('accessDeniedModal').addEventListener('click', function(e) {
+            if (e.target === this) this.style.display = 'none';
+        });
+        // Close with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('accessDeniedModal');
+                if (modal) modal.style.display = 'none';
+            }
+        });
+    </script>
+    {% endif %}
+    <script>
+        // ── Chart seed data from Jinja ─────────────────────
+        const INITIAL_CHART_LABELS    = [{% for row in data|reverse %}"{{ row[1].split(' ')[1] if ' ' in row[1] else row[1] }}",{% endfor %}];
+        const INITIAL_CONSUMPTION     = [{% for row in data|reverse if row[2] == 'GBT Total Consumption' %}{{ row[3] }},{% endfor %}];
+        const INITIAL_GENERATION      = [{% for row in data|reverse if row[2] == 'GBT Total Generation' %}{{ row[3] }},{% endfor %}];
+
+        // ── Toast helpers ──────────────────────────────────
+        let toastTimer;
+
+        function showToast(message) {
+            const toast = document.getElementById('successToast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(hideToast, 4000);
+        }
+
+        function hideToast() {
+            document.getElementById('successToast').classList.remove('show');
+            clearTimeout(toastTimer);
+        }
+
+        // ── Nav dropdown ───────────────────────────────────
+        (function() {
+            var wrap    = document.getElementById('navDropdownWrap');
+            var trigger = document.getElementById('navDropdownTrigger');
+            var panel   = document.getElementById('navDropdownPanel');
+            if (wrap && trigger && panel) {
+                trigger.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    wrap.classList.toggle('open');
+                    trigger.setAttribute('aria-expanded', wrap.classList.contains('open'));
+                });
+                document.addEventListener('click', function() {
+                    wrap.classList.remove('open');
+                    trigger.setAttribute('aria-expanded', 'false');
+                });
+                panel.addEventListener('click', function(e) { e.stopPropagation(); });
+            }
+        })();
+    </script>
+
+    <!-- scriptsV2.js handles live polling, chart updates, lookupSensor(), exportToCSV() -->
+    <script src="{{ url_for('static', filename='scriptsV2.js') }}"></script>
+</body>
+</html>
