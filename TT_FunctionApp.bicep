@@ -76,9 +76,18 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       appSettings: [
+        // Required by the Flex Consumption runtime to authenticate to storage
+        // using the function app's system-assigned managed identity
         {
           name: 'AzureWebJobsStorage__accountName'
           value: storageAccount.name
+        }
+        // FIX: Provides the full blob service URI so function_app.py can construct
+        // a BlobServiceClient via DefaultAzureCredential instead of a connection string.
+        // Read in code as: os.environ["AzureWebJobsStorage__blobServiceUri"]
+        {
+          name: 'AzureWebJobsStorage__blobServiceUri'
+          value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
         }
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
@@ -120,8 +129,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-// Grant the Function App's managed identity Storage Blob Data Contributor on the storage account
-// Required for Flex Consumption to read/write deployment packages
+// Grant the Function App's managed identity Storage Blob Data Contributor on the storage account.
+// Required for:
+//   1. Flex Consumption to read/write deployment packages from function-releases container
+//   2. function_app.py BlobServiceClient (DefaultAzureCredential) to read/move blobs in sensor-csv
 resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccount.id, functionApp.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
   scope: storageAccount
