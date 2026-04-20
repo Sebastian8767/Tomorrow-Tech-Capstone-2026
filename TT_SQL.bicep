@@ -5,11 +5,10 @@ az deployment group create `
   --resource-group GBTAC-RG `
   --template-file TT_SQL.bicep `
   --parameters `
-    adminUsername=gbtacadmin `
     adminPassword=P@ssw0rd!123! `
     sqlServerBaseName=gbtac-sql- `
-  --query "properties.outputs.sqlServerFqdn.value" `
-  --output tsv ; Write-Host "^^ Copy SQL FQDN Above ^^"
+  --query "[properties.outputs.sqlServerFqdn.value, properties.outputs.sqlServerName.value]" `
+  --output tsv ; Write-Host "^^ Line 1: SQL FQDN  |  Line 2: SQL Server Name (needed for firewall rules) ^^"
 
 */
 
@@ -23,7 +22,7 @@ param databaseName string = 'GBTAC-Database'
 param location string = resourceGroup().location
 
 @description('SQL admin username')
-param adminUsername string
+param adminUsername string = 'gbtacadmin'
 
 @secure()
 @description('SQL admin password')
@@ -67,5 +66,21 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2024-11-01-preview' = {
   }
 }
 
+// FIX: Allow Azure-internal services (Function App, Web App, Azure services) to reach SQL.
+// This is the standard "Allow Azure services and resources to access this server" toggle
+// expressed as a firewall rule (startIp = endIp = 0.0.0.0).
+// VM IPs and dev machine IPs must still be added manually after deployment via the
+// CLI commands in TT_VirtualMachines.bicep post-deployment steps.
+resource allowAzureServicesRule 'Microsoft.Sql/servers/firewallRules@2024-11-01-preview' = {
+  name: 'AllowAllWindowsAzureIps'
+  parent: sqlServer
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
+}
+
 // Displays the FQDN for the connection string used in the next step.
 output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
+// FIX: Added sqlServerName output — required for the --server parameter in firewall rule CLI commands
+output sqlServerName string = sqlServer.name
