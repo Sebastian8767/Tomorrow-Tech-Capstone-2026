@@ -33,15 +33,9 @@ az sql server firewall-rule create `
   --start-ip-address <LOCAL_IP> `
   --end-ip-address <LOCAL_IP>
 
-Post-deployment Step 2 — Run inside MQTT VM via Bastion as Administrator in PowerShell:
-
-  netsh advfirewall firewall add rule name="Datagen WebSocket" dir=in action=allow protocol=TCP localport=9000
-  netsh advfirewall firewall add rule name="Pi WebSocket"      dir=in action=allow protocol=TCP localport=9001
-  netsh advfirewall firewall add rule name="MQTT Broker"       dir=in action=allow protocol=TCP localport=1883
-
-Post-deployment Step 3 — Run inside Yabe VM via Bastion as Administrator in PowerShell:
-
-  netsh advfirewall firewall add rule name="Flask BMS" dir=in action=allow protocol=TCP localport=5000
+Note: Windows Firewall rules for ports 5000, 9000, 9001, and 1883 are now applied
+automatically at deploy time via CustomScriptExtension on each VM.
+No manual Bastion session is required for firewall configuration.
 
 */
 
@@ -49,11 +43,11 @@ Post-deployment Step 3 — Run inside Yabe VM via Bastion as Administrator in Po
 param location string = resourceGroup().location
 
 @description('Admin username for both VMs')
-param adminUsername string = 'GBTAC-admin'
+param adminUsername string = 'gbtacadmin'
 
 @secure()
 @description('Admin password for both VMs')
-param adminPassword string
+param adminPassword string = 'P@ssw0rd!123!'
 
 // Reference existing VNet and subnet
 resource vnet 'Microsoft.Network/virtualNetworks@2023-04-01' existing = {
@@ -65,7 +59,9 @@ resource defaultSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' ex
   parent: vnet
 }
 
-// --- YABE VM (VM2 — BMS Server) ---
+// ─────────────────────────────────────────────────────────────
+// YABE VM  (VM2 — BMS Server)
+// ─────────────────────────────────────────────────────────────
 
 resource yabePublicIp 'Microsoft.Network/publicIPAddresses@2023-04-01' = {
   name: 'Yabe-ip'
@@ -86,27 +82,27 @@ resource yabeNsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
       {
         name: 'RDP'
         properties: {
-          priority: 100
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 100
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '3389'
+          destinationPortRange:     '3389'
         }
       }
       {
         name: 'Flask_BMS'
         properties: {
-          priority: 110
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 110
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '5000'
+          destinationPortRange:     '5000'
         }
       }
     ]
@@ -156,12 +152,12 @@ resource yabeVm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
     storageProfile: {
       imageReference: {
         publisher: 'MicrosoftWindowsServer'
-        offer: 'WindowsServer'
-        sku: '2025-datacenter-g2'
-        version: 'latest'
+        offer:     'WindowsServer'
+        sku:       '2025-datacenter-g2'
+        version:   'latest'
       }
       osDisk: {
-        name: 'Yabe-OsDisk'
+        name:         'Yabe-OsDisk'
         createOption: 'FromImage'
         managedDisk: {
           storageAccountType: 'Standard_LRS'
@@ -170,13 +166,8 @@ resource yabeVm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
     }
     networkProfile: {
       networkInterfaces: [
-        {
-          id: yabeNic.id
-        }
+        { id: yabeNic.id }
       ]
-    }
-    securityProfile: {
-      securityType: 'Standard'
     }
     additionalCapabilities: {
       hibernationEnabled: false
@@ -189,7 +180,28 @@ resource yabeVm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
   }
 }
 
-// --- MQTT VM (VM1 — Datagen / MQTT / Client) ---
+// CustomScriptExtension — Yabe VM
+// Opens port 5000 (Flask BMS) in Windows Firewall automatically at deploy time.
+// Runs as SYSTEM immediately after the VM is provisioned — no Bastion session needed.
+resource yabeFirewallScript 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = {
+  name: 'yabeFirewallRules'
+  parent: yabeVm
+  location: location
+  properties: {
+    publisher:               'Microsoft.Compute'
+    type:                    'CustomScriptExtension'
+    typeHandlerVersion:      '1.10'
+    autoUpgradeMinorVersion: true
+    settings: {
+      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -Command "netsh advfirewall firewall add rule name=\'Flask BMS\' dir=in action=allow protocol=TCP localport=5000"'
+    }
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// MQTT VM  (VM1 — Datagen / MQTT / Client)
+// ─────────────────────────────────────────────────────────────
 
 resource mqttPublicIp 'Microsoft.Network/publicIPAddresses@2023-04-01' = {
   name: 'MQTT-ip'
@@ -210,68 +222,68 @@ resource mqttNsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
       {
         name: 'RDP'
         properties: {
-          priority: 100
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 100
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '3389'
+          destinationPortRange:     '3389'
         }
       }
       {
         name: 'HTTP'
         properties: {
-          priority: 110
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 110
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '80'
+          destinationPortRange:     '80'
         }
       }
       {
         // datagen.py WebSocket server — client.py connects here
         name: 'Datagen_WebSocket'
         properties: {
-          priority: 120
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 120
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '9000'
+          destinationPortRange:     '9000'
         }
       }
       {
-        // FIX: Added missing rule — Raspberry Pi WebSocket connection to client.py
+        // Raspberry Pi WebSocket connection to client.py
         name: 'Pi_WebSocket'
         properties: {
-          priority: 125
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 125
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '9001'
+          destinationPortRange:     '9001'
         }
       }
       {
         name: 'MQTT'
         properties: {
-          priority: 130
-          protocol: 'Tcp'
-          access: 'Allow'
-          direction: 'Inbound'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
+          priority:                 130
+          protocol:                 'Tcp'
+          access:                   'Allow'
+          direction:                'Inbound'
+          sourceAddressPrefix:      '*'
+          sourcePortRange:          '*'
           destinationAddressPrefix: '*'
-          destinationPortRange: '1883'
+          destinationPortRange:     '1883'
         }
       }
     ]
@@ -321,12 +333,12 @@ resource mqttVm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
     storageProfile: {
       imageReference: {
         publisher: 'MicrosoftWindowsServer'
-        offer: 'WindowsServer'
-        sku: '2025-datacenter-g2'
-        version: 'latest'
+        offer:     'WindowsServer'
+        sku:       '2025-datacenter-g2'
+        version:   'latest'
       }
       osDisk: {
-        name: 'MQTT-OsDisk'
+        name:         'MQTT-OsDisk'
         createOption: 'FromImage'
         managedDisk: {
           storageAccountType: 'Standard_LRS'
@@ -335,13 +347,8 @@ resource mqttVm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
     }
     networkProfile: {
       networkInterfaces: [
-        {
-          id: mqttNic.id
-        }
+        { id: mqttNic.id }
       ]
-    }
-    securityProfile: {
-      securityType: 'Standard'
     }
     additionalCapabilities: {
       hibernationEnabled: false
@@ -354,9 +361,34 @@ resource mqttVm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
   }
 }
 
-output yabeVmName string = yabeVm.name
-output mqttVmName string = mqttVm.name
+// CustomScriptExtension — MQTT VM
+// Opens ports 9000 (Datagen WebSocket), 9001 (Pi WebSocket), and 1883 (MQTT broker)
+// in Windows Firewall automatically at deploy time.
+// All three rules are chained in a single commandToExecute so the extension
+// only runs once and Azure reports a single clean success/failure status.
+resource mqttFirewallScript 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = {
+  name: 'mqttFirewallRules'
+  parent: mqttVm
+  location: location
+  properties: {
+    publisher:               'Microsoft.Compute'
+    type:                    'CustomScriptExtension'
+    typeHandlerVersion:      '1.10'
+    autoUpgradeMinorVersion: true
+    settings: {
+      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -Command "netsh advfirewall firewall add rule name=\'Datagen WebSocket\' dir=in action=allow protocol=TCP localport=9000; netsh advfirewall firewall add rule name=\'Pi WebSocket\' dir=in action=allow protocol=TCP localport=9001; netsh advfirewall firewall add rule name=\'MQTT Broker\' dir=in action=allow protocol=TCP localport=1883"'
+    }
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// Outputs
+// ─────────────────────────────────────────────────────────────
+
+output yabeVmName   string = yabeVm.name
+output mqttVmName   string = mqttVm.name
 output yabePublicIp string = yabePublicIp.properties.ipAddress
 output mqttPublicIp string = mqttPublicIp.properties.ipAddress
-// FIX: Added sqlServerName output so callers have the exact name needed for firewall rule CLI commands
+// Use TT_SQL.bicep output sqlServerName for the --server parameter in firewall rule CLI commands
 output sqlServerNameHint string = 'Use TT_SQL.bicep output sqlServerName for firewall rule --server parameter'
